@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f6e6a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Доходы">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Учет доходов</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+html{color-scheme:light}body{margin:0}
+
+/* Layout: sticky header with year switcher + tabs; month cards (details) per section; summary table with annual totals. */
+:root{
+  --bg:#f3f6f7; --surface:#ffffff; --surface2:#eaf0f2; --ink:#13222b; --ink2:#56707d; --line:#d6e0e5;
+  --accent:#0f6e6a; --accent-ink:#ffffff; --pos:#17794a; --neg:#b3392b; --focus:#1b8f89;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a20; --surface:#17252d; --surface2:#1e3039; --ink:#e4eef2; --ink2:#8ea8b4; --line:#2b414c;
+  --accent:#4fc1ba; --accent-ink:#06201f; --pos:#5ed39a; --neg:#ff8b7c; --focus:#6fd6cf; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1a20; --surface:#17252d; --surface2:#1e3039; --ink:#e4eef2; --ink2:#8ea8b4; --line:#2b414c;
+  --accent:#4fc1ba; --accent-ink:#06201f; --pos:#5ed39a; --neg:#ff8b7c; --focus:#6fd6cf; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;
+  padding-block:0 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:14px 0 0;border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:18px;font-weight:600;margin:0;letter-spacing:.01em}
+.top-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.year{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:2px}
+.year b{font-family:var(--mono);font-size:16px;font-weight:500;min-width:56px;text-align:center}
+button{font:inherit;color:inherit;cursor:pointer}
+.year button{border:0;background:transparent;width:34px;height:34px;border-radius:6px;font-size:18px}
+.year button:hover{background:var(--surface2)}
+nav{display:flex;gap:2px;overflow-x:auto;margin-top:10px;scrollbar-width:none}
+nav button{border:0;background:transparent;padding:10px 14px;color:var(--ink2);border-bottom:2px solid transparent;white-space:nowrap;font-weight:500}
+nav button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+main{padding-top:18px;display:grid;gap:14px}
+.note{color:var(--ink2);font-size:13px;margin:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+details.card>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;flex-wrap:wrap}
+details.card>summary::-webkit-details-marker{display:none}
+details.card>summary::before{content:"▸";color:var(--ink2);transition:transform .15s}
+details.card[open]>summary::before{transform:rotate(90deg)}
+.mname{font-weight:600;min-width:84px}
+.sum{margin-left:auto;font-family:var(--mono);font-size:13px;color:var(--ink2);text-align:right}
+.body{padding:4px 14px 16px;border-top:1px solid var(--line);display:grid;gap:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px}
+.grid>*{min-width:0}
+label{display:grid;gap:3px;font-size:12px;color:var(--ink2)}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 8px;width:100%;min-width:0}
+input[type=number]{font-family:var(--mono)}
+input[type=checkbox]{width:18px;height:18px;padding:0;accent-color:var(--accent)}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);align-self:end;padding-bottom:7px}
+.sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);font-weight:600;margin:6px 0 -4px}
+.res{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.res div{background:var(--surface2);border-radius:8px;padding:8px 10px}
+.res small{display:block;font-size:11px;color:var(--ink2)}
+.res output{font-family:var(--mono);font-size:15px;font-weight:500;font-variant-numeric:tabular-nums}
+.res .big output{color:var(--pos)}
+.neg{color:var(--neg)}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:8px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);font-weight:600}
+td{font-family:var(--mono);font-size:13px}td:first-child{font-family:var(--sans)}
+tfoot td{font-weight:600;border-bottom:0;background:var(--surface2)}
+.tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.tot .card{padding:12px 14px}
+.tot h3{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)}
+.tot p{margin:0;font-family:var(--mono);display:flex;justify-content:space-between;gap:10px}
+.tot .all{border-color:var(--accent)}
+.add,.del{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px}
+.add{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500;justify-self:start}
+.del{color:var(--neg);padding:5px 10px;font-size:12px;justify-self:end}
+.empty{padding:28px 16px;text-align:center;color:var(--ink2)}
+#status{font-size:12px;color:var(--ink2)}
+@media (max-width:520px){.sum{margin-left:0;width:100%;text-align:left}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.res output{font-weight:400}.res .src output{font-weight:700}
+td.src{font-weight:700}
+.pend{font-size:12px;color:var(--ink2)}.pend.warn{color:var(--neg)}.pend.ok{color:var(--pos)}
+.strow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
+.strow>label{width:150px}.sn{min-width:150px;font-weight:500;padding-bottom:7px}.sa{font-family:var(--mono);min-width:110px;padding-bottom:7px}
+.raw{margin:0;padding:10px 14px;font-size:13px;color:var(--ink2)}.raw b{font-family:var(--mono);color:var(--ink);font-weight:500}
+.cl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
+.cl:last-child{border-bottom:0}.cl b{font-family:var(--mono);min-width:48px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:12px 14px}.row label{width:130px}
+.panel{padding:14px;display:grid;gap:10px}.panel h2{margin:0;font-size:15px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="top">
+    <h1>Учет доходов <span id="status"></span></h1>
+    <div class="top-r"><button id="xl" class="add" hidden>Скачать Excel</button> <div class="year"><button id="py" aria-label="Предыдущий год">‹</button><b id="yl"></b><button id="ny" aria-label="Следующий год">›</button></div></div>
+  </div>
+  <nav id="tabs" role="tablist"></nav>
+</header>
+<main id="main"></main>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+var MON=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+var DEF=[{code:'RUB',sym:'₽',on:true},{code:'USD',sym:'$',on:true},{code:'KZT',sym:'₸',on:true}];
+var settings={cur:DEF.map(function(x){return{code:x.code,sym:x.sym,on:x.on}})};
+var year=new Date().getFullYear(),tab='sum',Y=null,db=null,uid=null,timers={},dlcap=null,pendingImport=null,PU=[];
+var TABS=[['sum','Сводка'],['rent','Аренда'],['salary','Зарплата'],['interest','Вклады'],['other','Прочие доходы'],['util','Коммуналка'],['settings','Настройки']];
+function num(v){var n=parseFloat(String(v==null?'':v).replace(',','.'));return isFinite(n)?n:0}
+function has(v){return v!==null&&v!==undefined&&v!==''}
+function fin(x){return isFinite(x)?x:0}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function sym(c){for(var i=0;i<settings.cur.length;i++)if(settings.cur[i].code===c)return settings.cur[i].sym;return c}
+function act(){return settings.cur.filter(function(x){return x.on}).map(function(x){return x.code})}
+function fmt(n,c){if(!isFinite(n))return '—';var s=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);return c?s+' '+sym(c):s}
+
+/* Курсы: сколько единицы валюты за 1 $. Любая сумма -> доллары -> остальные валюты. Нет курса -> NaN (в интерфейсе прочерк). */
+function conv(a,cur,rates){
+  a=num(a);rates=rates||{};var usd;
+  if(cur==='USD')usd=a;else{var r=num(rates[cur]);usd=r?a/r:NaN}
+  var out={USD:usd};
+  settings.cur.forEach(function(x){var c=x.code;if(c==='USD')return;var r=num(rates[c]);out[c]=r?usd*r:NaN});
+  out[cur]=a;return out;
+}
+function mig(o){if(!o.rates){o.rates={};if(has(o.usdRub))o.rates.RUB=o.usdRub;if(has(o.usdKzt))o.rates.KZT=o.usdKzt}return o}
+function blankYear(){var r=[],u=[];for(var i=0;i<12;i++){r.push({cur:'RUB',taxPct:'4',rates:{}});u.push({})}return{rent:r,util:u,inc:[]}}
+function normY(d){
+  var b=blankYear();d=d||{};
+  if(d.rent&&d.rent.length===12)b.rent=d.rent;if(d.util&&d.util.length===12)b.util=d.util;b.inc=d.inc||[];
+  b.rent.forEach(function(m,i){mig(m);if(has(m.inet)&&!has(b.util[i].inet))b.util[i].inet=m.inet;delete m.inet});
+  b.inc.forEach(mig);return b;
+}
+function normSettings(s){
+  var out=DEF.map(function(x){return{code:x.code,sym:x.sym,on:true}});
+  if(s&&s.cur){s.cur.forEach(function(x){var f=null;out.forEach(function(o){if(o.code===x.code)f=o});
+    if(f){if(x.code==='KZT')f.on=x.on!==false}else if(x.code)out.push({code:x.code,sym:x.sym||x.code,on:x.on!==false})})}
+  return{cur:out};
+}
+/* Хранение: db (личные данные viewer-а) или localStorage */
+function lsKey(id){return id==='settings'?'income-settings':'income-'+id.slice(1)}
+function parse(s){try{return s?JSON.parse(s):null}catch(e){return null}}
+function readDoc(id,cb){
+  if(db&&uid){db.collection('data/users/'+uid).doc(id).get().then(function(s){cb(s.exists?parse(s.data().json):null)},function(){cb(null)});return}
+  try{cb(parse(localStorage.getItem(lsKey(id))))}catch(e){cb(null)}
+}
+function writeDoc(id,obj,ok,bad){
+  var snap=JSON.stringify(obj);
+  if(db&&uid){db.collection('data/users/'+uid).doc(id).set({json:snap}).then(ok,bad);return}
+  try{localStorage.setItem(lsKey(id),snap);ok()}catch(e){bad()}
+}
+function setStatus(t){var s=document.getElementById('status');if(s)s.textContent=t?'· '+t:''}
+function saveSoon(id,getter){
+  clearTimeout(timers[id]);setStatus('…');
+  timers[id]=setTimeout(function(){writeDoc(id,getter(),function(){setStatus('сохранено')},function(){setStatus('не сохранено')})},600);
+}
+function saveYear(){var y=year,d=Y;saveSoon('y'+y,function(){return d})}
+function saveSettings(){saveSoon('settings',function(){return settings})}
+function loadYear(y,cb){readDoc('y'+y,function(d){Y=normY(d);readDoc('y'+(y-1),function(p){PU=normY(p).util;cb()})})}
+
+/* Коммуналка */
+function ut(i,f){var u=Y.util[i];return u&&has(u[f])?u[f]:''}
+function tariff(i,f){for(var j=i;j>=0;j--){if(has(Y.util[j][f]))return Y.util[j][f]}for(var k=PU.length-1;k>=0;k--){if(has(PU[k][f]))return PU[k][f]}return ''}
+function prevR(i,k){if(has(ut(i,k+'P')))return ut(i,k+'P');if(i>0)return has(Y.util[i-1][k+'C'])?Y.util[i-1][k+'C']:'';return PU.length===12&&has(PU[11][k+'C'])?PU[11][k+'C']:''}
+var RD=['cwC','hwC','e1C','e2C','e3C'];
+function hasData(i){return has(Y.rent[i].amount)||has(ut(i,'inet'))||RD.some(function(k){return has(ut(i,k))})}
+function line(i,k,tf){var p=num(prevR(i,k)),c=num(ut(i,k+'C')),use=has(ut(i,k+'C'))?c-p:0;return{use:use,sum:use*num(tariff(i,tf))}}
+function utilCalc(i){
+  var cold=line(i,'cw','cwT'),hot=line(i,'hw','hwT');
+  var sewUse=cold.use+hot.use,sew=sewUse*num(tariff(i,'swT')),water=cold.sum+hot.sum+sew;
+  var t1=line(i,'e1','e1T'),t2=line(i,'e2','e2T'),t3=line(i,'e3','e3T'),el=t1.sum+t2.sum+t3.sum;
+  return{cold:cold,hot:hot,sewUse:sewUse,sew:sew,water:water,t1:t1,t2:t2,t3:t3,el:el,sub:water+el,total:water+el+num(tariff(i,'inet'))};
+}
+/* Аренда: расходы = налог + коммуналка + maintenance + прочее - вода и КПУ. Электричество и интернет не входят. */
+function rentCalc(i){
+  var m=Y.rent[i],a=num(m.amount),u=utilCalc(i);
+  var tax=a*num(m.taxPct)/100,water=has(m.water)?num(m.water):u.water;
+  var exp=tax+num(m.jkh)+num(m.maint)+num(m.other)-water,net=a-exp;
+  return{a:a,tax:tax,water:water,elec:has(m.elec)?num(m.elec):u.el,exp:exp,net:net,
+    expC:conv(exp,m.cur,m.rates),netC:conv(net,m.cur,m.rates)};
+}
+/* Статусы оплаты квартирантом (общие для аренды и коммуналки) */
+function pend(i){
+  if(!hasData(i))return{any:false,list:[]};
+  var c=rentCalc(i),r=Y.util[i],p=[],any=false,n=num(tariff(i,'inet'));
+  if(c.water>0){any=true;if(!r.wPaid)p.push('вода и КПУ')}
+  if(c.elec>0){any=true;if(!r.ePaid)p.push('электричество')}
+  if(n>0){any=true;if(!r.iPaid)p.push('интернет')}
+  return{any:any,list:p};
+}
+window.__t={conv:conv,rentCalc:rentCalc,utilCalc:utilCalc,pend:pend,setY:function(y,pu){Y=y;PU=pu||[]},settings:settings};
+function getP(p){var s=p.split('.'),o=Y;for(var i=0;i<s.length;i++){if(o==null)return '';o=o[s[i]]}return o==null?'':o}
+function setP(p,v){var s=p.split('.'),o=Y;for(var i=0;i<s.length-1;i++){if(o[s[i]]==null)o[s[i]]={};o=o[s[i]]}o[s[s.length-1]]=v}
+function f(p,label,type,ph){
+  var v=getP(p);
+  if(type==='cur'){var L=act();if(L.indexOf(v)<0&&v)L.push(v);return '<label>'+label+'<select data-p="'+p+'">'+L.map(function(c){return '<option value="'+c+'"'+(v===c?' selected':'')+'>'+c+' '+sym(c)+'</option>'}).join('')+'</select></label>'}
+  if(type==='check')return '<label class="chk"><input type="checkbox" data-p="'+p+'"'+(v?' checked':'')+'>'+label+'</label>';
+  var t=type==='num'?'number" step="any" inputmode="decimal':type;
+  return '<label>'+label+'<input type="'+t+'" data-p="'+p+'" value="'+esc(v)+'"'+(ph?' data-ph="'+ph+'"':'')+'></label>';
+}
+function o(key,label,cls){return '<div'+(cls?' class="'+cls+'"':'')+'><small>'+label+'</small><output data-c="'+key+'"></output></div>'}
+function nowOpen(i){return year===new Date().getFullYear()&&i===new Date().getMonth()?' open':''}
+function rateFields(base,kind,i){return act().filter(function(c){return c!=='USD'}).map(function(c){return f(base+'rates.'+c,'Курс: '+sym(c)+' за 1 $','num','k:'+kind+':'+i+':'+c)}).join('')}
+
+function viewStatus(i){
+  var p='util.'+i+'.';
+  function row(name,amt,k){return '<div class="strow"><span class="sn">'+name+'</span>'+amt+f(p+k+'Paid','Оплатил','check')+f(p+k+'Date','Дата оплаты','date')+'</div>'}
+  return '<div class="sec">Оплата квартирантом</div>'
+    +row('Вода и КПУ','<span class="sa" data-c="p:'+i+':w"></span>','w')
+    +row('Электричество','<span class="sa" data-c="p:'+i+':e"></span>','e')
+    +row('Интернет',f(p+'inet','Сумма (интернет)','num','u:'+i+':inet'),'i');
+}
+function viewRent(){
+  var L=act();
+  return Y.rent.map(function(m,i){var p='rent.'+i+'.';
+    return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="pend" data-c="s:'+i+':pend"></span><span class="sum" data-c="r:'+i+':sum"></span></summary><div class="body">'
+    +'<div class="grid">'+f(p+'date','Дата получения','date')+f(p+'amount','Арендная плата','num')+f(p+'cur','Валюта','cur')+rateFields(p,'rent',i)+f(p+'taxPct','Налог, %','num')+'</div>'
+    +'<div class="sec">Расходы (в валюте аренды)</div>'
+    +'<div class="grid">'+f(p+'jkh','Коммуналка по квитанции','num')+f(p+'water','Вода и КПУ (вычитается)','num','r:'+i+':waterph')+f(p+'elec','Электричество (учет)','num','r:'+i+':elecph')
+    +f(p+'maint','Maintenance','num')+f(p+'maintNote','Что именно','text')+f(p+'other','Прочие расходы','num')+f(p+'otherNote','Что именно','text')+'</div>'
+    +'<div class="res">'+o('r:'+i+':tax','Налог')+L.map(function(c){return o('r:'+i+':exp:'+c,'Расходы, '+sym(c))}).join('')+'</div>'
+    +'<div class="res">'+L.map(function(c){return o('r:'+i+':inc:'+c,'Доход, '+sym(c),'big')}).join('')+'</div>'
+    +viewStatus(i)+'</div></details>'}).join('')
+    +'<p class="note">Расходы = налог + коммуналка + maintenance + прочее − вода и КПУ. Электричество и интернет в расходы не входят, их возмещает квартирант. Если «Вода и КПУ» или «Электричество» не заполнены, берется сумма из вкладки «Коммуналка». Жирным выделена валюта, в которой получена аренда.</p>';
+}
+function viewUtil(){
+  function tri(i,k,label,tf,unit){var p='util.'+i+'.';
+    return '<div class="sec">'+label+'</div><div class="grid">'+f(p+k+'P','Прошлый месяц ('+unit+')','num','u:'+i+':'+k+'P')+f(p+k+'C','Текущий месяц ('+unit+')','num')+f(p+tf,'Тариф за '+unit,'num','u:'+i+':'+tf)
+    +o('u:'+i+':'+k+'U','Расход, '+unit)+o('u:'+i+':'+k+'S','Сумма')+'</div>'}
+  return Y.util.map(function(u,i){var p='util.'+i+'.';
+    return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="pend" data-c="s:'+i+':pend"></span><span class="sum" data-c="u:'+i+':sum"></span></summary><div class="body">'
+    +tri(i,'cw','Вода холодная','cwT','м³')+tri(i,'hw','Вода горячая','hwT','м³')
+    +'<div class="sec">Водоотведение (КПУ)</div><div class="grid">'+f(p+'swT','Тариф за м³','num','u:'+i+':swT')+o('u:'+i+':swU','Расход (хол. + гор.), м³')+o('u:'+i+':swS','Сумма')+'</div>'
+    +'<div class="res">'+o('u:'+i+':water','Всего вода','big')+'</div>'
+    +tri(i,'e1','Электричество T1','e1T','кВт·ч')+tri(i,'e2','Электричество T2','e2T','кВт·ч')+tri(i,'e3','Электричество T3','e3T','кВт·ч')
+    +'<div class="res">'+o('u:'+i+':el','Всего электричество','big')+'</div>'
+    +'<div class="res">'+o('u:'+i+':sub','Вода + электричество')+o('u:'+i+':total','К оплате квартирантом (с интернетом)','big')+'</div>'
+    +viewStatus(i)+'</div></details>'}).join('')
+    +'<p class="note">Показания «прошлый месяц» и тарифы подставляются из предыдущего месяца, пока вы не введете свои. Отметки об оплате общие с карточкой аренды.</p>';
+}
+var KIND={salary:['Зарплата','Источник / компания','Добавить зарплату'],interest:['Вклады','Счет / вклад','Добавить процент по вкладу'],other:['Прочие доходы','Что за доход','Добавить доход']};
+function viewInc(kind){
+  var h='',any=false,K=KIND[kind],L=act();
+  Y.inc.forEach(function(x,i){if(x.kind!==kind)return;any=true;var p='inc.'+i+'.';
+    h+='<div class="card body"><div class="grid">'+f(p+'date','Дата получения','date')+f(p+'name',K[1],'text')+f(p+'amount','Сумма','num')+f(p+'cur','Валюта','cur')+rateFields(p,'inc',i)+'</div>'
+    +'<div class="res">'+L.map(function(c){return o('n:'+i+':'+c,'В '+sym(c))}).join('')+'</div>'
+    +'<button class="del" data-del="'+i+'">Удалить</button></div>'});
+  if(!any)h+='<div class="card empty">Записей за '+year+' год пока нет.</div>';
+  return h+'<button class="add" data-add="'+kind+'">+ '+K[2]+'</button>';
+}
+function viewSum(){
+  var L=act(),cats=['rent','salary','interest','other'],T={},raw={},rows='',names={rent:'Аренда, чистый доход',salary:'Зарплата',interest:'Вклады',other:'Прочие'};
+  cats.forEach(function(k){T[k]={}});T.all={};var OK={},MS={};['all'].concat(cats).forEach(function(k){OK[k]={};MS[k]={}});
+  function add(k,conv0){L.forEach(function(c){var good=isFinite(conv0[c]);[k,'all'].forEach(function(z){T[z][c]=(T[z][c]||0)+fin(conv0[c]);if(good)OK[z][c]=1;else MS[z][c]=1})})}
+  Y.rent.forEach(function(m,i){var c=rentCalc(i);if(!c.a)return;add('rent',c.netC);raw[m.cur]=(raw[m.cur]||0)+c.net;
+    rows+='<tr><td>'+MON[i]+'</td>'+L.map(function(k){return '<td'+(k===m.cur?' class="src"':'')+'>'+fmt(c.netC[k],k)+'</td>'}).join('')+'</tr>'});
+  Y.inc.forEach(function(x){if(!T[x.kind])return;add(x.kind,conv(x.amount,x.cur,x.rates));if(num(x.amount))raw[x.cur]=(raw[x.cur]||0)+num(x.amount)});
+  function shown(z,c){if(T[z][c]===undefined||!OK[z][c])return '—';return fmt(T[z][c],0)+(MS[z][c]?'*':'')}
+  function card(z,n,cls){return '<div class="card'+(cls?' '+cls:'')+'"><h3>'+n+'</h3>'+L.map(function(c){return '<p><span>'+sym(c)+'</span><span>'+shown(z,c)+'</span></p>'}).join('')+'</div>'}
+  var rawL=Object.keys(raw).filter(function(c){return raw[c]}).map(function(c){return '<b>'+fmt(raw[c],c)+'</b>'}).join(' + ');
+  return '<div class="tot">'+card('all','Всего за '+year,'all')+cats.map(function(k){return card(k,names[k])}).join('')+'</div>'
+  +(rawL?'<p class="raw card">Фактический доход после расходов, в исходных валютах: '+rawL+'</p>':'')
+  +'<div class="card tw"><table><thead><tr><th>Аренда по месяцам</th>'+L.map(function(c){return '<th>Доход, '+sym(c)+'</th>'}).join('')+'</tr></thead><tbody>'
+  +(rows||'<tr><td colspan="'+(L.length+1)+'">Введите арендную плату на вкладке «Аренда».</td></tr>')+'</tbody><tfoot><tr><td>Итого</td>'+L.map(function(c){return '<td>'+shown('rent',c).replace(/^([^*]*?)(\*?)$/,function(m,a,b){return a==='—'?a:a+' '+sym(c)+b})+'</td>'}).join('')+'</tr></tfoot></table></div>'
+  +'<p class="note">Каждая сумма пересчитана по курсам, указанным на дату получения. Жирным выделена валюта, в которой деньги получены. Прочерк значит, что курс не указан. Звездочка значит, что курс указан не во всех записях, и сумма неполная.</p>';
+}
+function viewSettings(){
+  var cl=settings.cur.map(function(x,idx){var lock=x.code==='RUB'||x.code==='USD';
+    return '<div class="cl"><b>'+esc(x.code)+'</b><span>'+esc(x.sym)+'</span>'+(lock?'<span class="note">основная валюта</span>':'<label class="chk"><input type="checkbox" data-sc="'+idx+'"'+(x.on?' checked':'')+'>Использовать</label>')+'</div>'}).join('');
+  return '<div class="card"><div class="panel"><h2>Валюты</h2><p class="note">Все суммы пересчитываются через доллар, поэтому в каждой записи курс вводится как «сколько единиц валюты за 1 $». Скрытая валюта пропадает из полей и итогов, но введенные курсы сохраняются.</p></div>'+cl
+  +'<div class="row"><label>Код (например, EUR)<input id="ncode" maxlength="5"></label><label>Символ (€)<input id="nsym" maxlength="3"></label><button class="btn pri" data-act="addcur">Добавить валюту</button><span class="note" id="curmsg"></span></div></div>'
+  +'<div class="card panel"><h2>Резервная копия</h2><p class="note">Файл Excel содержит все годы и валюты. Из него же можно восстановить данные: загрузите файл, который выгрузило это приложение.</p>'
+  +'<div class="row" style="padding:0"><button class="btn pri" data-act="export">Скачать Excel</button><label style="width:auto">Восстановить из файла<input type="file" id="impfile" accept=".xlsx"></label></div><div id="impmsg"></div></div>';
+}
+function render(){
+  document.getElementById('yl').textContent=year;
+  document.getElementById('tabs').innerHTML=TABS.map(function(t){return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(t[0]===tab)+'">'+t[1]+'</button>'}).join('');
+  var m=document.getElementById('main');
+  m.innerHTML=!Y?'<div class="empty">Загрузка…</div>':tab==='sum'?viewSum():tab==='rent'?viewRent():tab==='util'?viewUtil():tab==='settings'?viewSettings():viewInc(tab);
+  refresh();
+}
+function setSrc(e,on){var d=e.parentNode;if(d&&d.classList)d.classList.toggle('src',on)}
+function lastRate(kind,i,c){var A=kind==='rent'?Y.rent:Y.inc;for(var j=i-1;j>=0;j--){var r=A[j].rates;if(r&&has(r[c]))return r[c]}return ''}
+function refresh(){
+  if(!Y)return;
+  document.querySelectorAll('[data-c]').forEach(function(e){
+    var k=e.getAttribute('data-c').split(':'),t=k[0],i=+k[1],n=k[2],v='';
+    if(t==='r'){var m=Y.rent[i],c=rentCalc(i),cu=m.cur;
+      if(n==='tax')v=fmt(c.tax,cu);
+      else if(n==='exp'){v=fmt(c.expC[k[3]],k[3]);setSrc(e,k[3]===cu)}
+      else if(n==='inc'){v=fmt(c.netC[k[3]],k[3]);setSrc(e,k[3]===cu);e.classList.toggle('neg',c.netC[k[3]]<0)}
+      else if(n==='sum')v=c.a?'нетто '+fmt(c.net,cu):'нет данных'}
+    else if(t==='s'){var q=pend(i);v=!q.any?'':q.list.length?'ждёт: '+q.list.join(', '):'все оплачено';
+      e.className='pend'+(q.any?(q.list.length?' warn':' ok'):'')}
+    else if(t==='p'){var c3=rentCalc(i);v=fmt(n==='w'?c3.water:c3.elec,Y.rent[i].cur)}
+    else if(t==='u'){var u=utilCalc(i),L={cwU:u.cold.use,cwS:u.cold.sum,hwU:u.hot.use,hwS:u.hot.sum,swU:u.sewUse,swS:u.sew,water:u.water,
+        e1U:u.t1.use,e1S:u.t1.sum,e2U:u.t2.use,e2S:u.t2.sum,e3U:u.t3.use,e3S:u.t3.sum,el:u.el,sub:u.sub,total:u.total};
+      v=n==='sum'?(hasData(i)&&u.total?'к оплате '+fmt(u.total):'нет данных'):/U$/.test(n)?String(Math.round(L[n]*1000)/1000):fmt(L[n])}
+    else if(t==='n'){var x=Y.inc[i],cc=conv(x.amount,x.cur,x.rates);v=fmt(cc[n],n);setSrc(e,n===x.cur)}
+    e.textContent=v});
+  document.querySelectorAll('[data-ph]').forEach(function(e){
+    var k=e.getAttribute('data-ph').split(':'),v='';
+    if(k[0]==='r'){var i=+k[1],u=utilCalc(i);v=k[2]==='waterph'?Math.round(u.water*100)/100:Math.round(u.el*100)/100}
+    else if(k[0]==='k')v=lastRate(k[1],+k[2],k[3]);
+    else{var j=+k[1],n=k[2];v=/P$/.test(n)?prevR(j,n.replace(/P$/,'')):tariff(j,n)}
+    e.placeholder=v===''?'':String(v)});
+}
+function onField(e){var p=e.target.getAttribute&&e.target.getAttribute('data-p');if(!p||!Y)return;
+  setP(p,e.target.type==='checkbox'?e.target.checked:e.target.value);saveYear();refresh()}
+document.addEventListener('input',onField);document.addEventListener('change',onField);
+document.addEventListener('change',function(e){
+  var t=e.target;
+  if(t.getAttribute&&t.getAttribute('data-sc')!==null){settings.cur[+t.getAttribute('data-sc')].on=t.checked;saveSettings();render()}
+  if(t.id==='impfile'&&t.files&&t.files[0])readImport(t.files[0]);
+});
+document.addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  if(b.dataset.tab){tab=b.dataset.tab;render();return}
+  if(b.dataset.add){Y.inc.push({kind:b.dataset.add,cur:'RUB',rates:{}});saveYear();render();return}
+  if(b.dataset.del!==undefined){if(b.dataset.armed){Y.inc.splice(+b.dataset.del,1);saveYear();render()}else{b.dataset.armed='1';b.textContent='Нажмите еще раз';setTimeout(function(){if(b.isConnected){delete b.dataset.armed;b.textContent='Удалить'}},3000)}return}
+  var a=b.dataset.act;
+  if(a==='addcur'){var cd=document.getElementById('ncode').value.trim().toUpperCase(),sy=document.getElementById('nsym').value.trim()||cd,msg=document.getElementById('curmsg');
+    if(!/^[A-Z]{2,5}$/.test(cd)){msg.textContent='Код: 2–5 латинских букв';return}
+    if(settings.cur.some(function(x){return x.code===cd})){msg.textContent='Такая валюта уже есть';return}
+    settings.cur.push({code:cd,sym:sy,on:true});saveSettings();render()}
+  if(a==='export')doExport();
+  if(a==='impok')applyImport();
+  if(a==='impcancel'){pendingImport=null;document.getElementById('impmsg').innerHTML=''}
+});
+
+/* Выгрузка в Excel и резервная копия */
+function allYears(cb){
+  var out={};out[year]=Y;
+  function add(id,d){var y=+id.slice(1);if(y&&y!==year)out[y]=normY(d)}
+  if(db&&uid){db.collection('data/users/'+uid).get().then(function(sn){sn.docs.forEach(function(d){if(/^y\d{4}$/.test(d.id))add(d.id,parse(d.data().json))});cb(out)},function(){cb(out)});return}
+  try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i),m=/^income-(\d{4})$/.exec(k);if(m)add('y'+m[1],parse(localStorage.getItem(k)))}}catch(e){}
+  cb(out);
+}
+function n2(v){return has(v)?num(v):''}
+function nv(x){return isFinite(x)?x:''}
+function buildWb(years){
+  var wb=XLSX.utils.book_new(),keep=Y,ys=Object.keys(years).sort(),L=act(),NU=L.filter(function(c){return c!=='USD'});
+  var A=[['Год','Месяц','Дата получения','Арендная плата','Валюта'].concat(NU.map(function(c){return 'Курс '+c+' за 1 USD'}),['Налог %','Налог','Коммуналка (квитанция)','Вода и КПУ','Электричество','Интернет','Maintenance','Maintenance: что','Прочие расходы','Прочие: что','Расходы итого (валюта аренды)','Доход (валюта аренды)'],L.map(function(c){return 'Доход '+c}),['Вода оплачена','Дата','Электричество оплачено','Дата','Интернет оплачен','Дата'])];
+  var I=[['Год','Тип','Дата','Название','Сумма','Валюта'].concat(NU.map(function(c){return 'Курс '+c+' за 1 USD'}),L.map(function(c){return c}))];
+  var U=[['Год','Месяц','Хол. вода: прошлый','Хол. вода: текущий','Хол. вода: тариф','Хол. вода: сумма','Гор. вода: прошлый','Гор. вода: текущий','Гор. вода: тариф','Гор. вода: сумма','КПУ м³','КПУ тариф','КПУ сумма','Всего вода','T1 прошлый','T1 текущий','T1 тариф','T1 сумма','T2 прошлый','T2 текущий','T2 тариф','T2 сумма','T3 прошлый','T3 текущий','T3 тариф','T3 сумма','Всего электричество','Интернет','К оплате']];
+  var KN={salary:'Зарплата',interest:'Вклад',other:'Прочее'};
+  ys.forEach(function(yr){Y=years[yr];var yn=+yr;
+    Y.rent.forEach(function(m,i){var c=rentCalc(i),r=Y.util[i];if(!c.a&&!has(m.jkh)&&!has(m.maint)&&!has(m.other))return;
+      A.push([yn,MON[i],m.date||'',c.a,m.cur].concat(NU.map(function(k){return n2((m.rates||{})[k])}),[n2(m.taxPct),c.tax,n2(m.jkh),c.water,c.elec,n2(tariff(i,'inet')),n2(m.maint),m.maintNote||'',n2(m.other),m.otherNote||'',c.exp,c.net],L.map(function(k){return nv(c.netC[k])}),[r.wPaid?'да':'нет',r.wDate||'',r.ePaid?'да':'нет',r.eDate||'',r.iPaid?'да':'нет',r.iDate||'']))});
+    Y.inc.forEach(function(x){var c=conv(x.amount,x.cur,x.rates);I.push([yn,KN[x.kind]||x.kind,x.date||'',x.name||'',num(x.amount),x.cur].concat(NU.map(function(k){return n2((x.rates||{})[k])}),L.map(function(k){return nv(c[k])})))});
+    Y.util.forEach(function(r,i){var u=utilCalc(i);if(!hasData(i))return;
+      U.push([yn,MON[i],n2(prevR(i,'cw')),n2(r.cwC),n2(tariff(i,'cwT')),u.cold.sum,n2(prevR(i,'hw')),n2(r.hwC),n2(tariff(i,'hwT')),u.hot.sum,u.sewUse,n2(tariff(i,'swT')),u.sew,u.water,
+        n2(prevR(i,'e1')),n2(r.e1C),n2(tariff(i,'e1T')),u.t1.sum,n2(prevR(i,'e2')),n2(r.e2C),n2(tariff(i,'e2T')),u.t2.sum,n2(prevR(i,'e3')),n2(r.e3C),n2(tariff(i,'e3T')),u.t3.sum,u.el,n2(tariff(i,'inet')),u.total])});
+  });
+  Y=keep;
+  [['Аренда',A],['Доходы',I],['Коммуналка',U]].forEach(function(s){var ws=XLSX.utils.aoa_to_sheet(s[1]);ws['!cols']=s[1][0].map(function(h){return{wch:Math.max(12,String(h).length+2)}});XLSX.utils.book_append_sheet(wb,ws,s[0])});
+  var json=JSON.stringify({app:'uchet-dohodov',v:2,settings:settings,years:years}),rows=[];
+  for(var p=0;p<json.length;p+=30000)rows.push([json.slice(p,p+30000)]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'_data');
+  wb.Workbook={Sheets:[{},{},{},{Hidden:1}]};
+  return wb;
+}
+function saveFile(name,buf,done){
+  if(dlcap){dlcap.save({filename:name,data:buf}).then(function(){setStatus('файл сохранен');done()},function(e){if(!e||e.code!=='declined')setStatus('не удалось сохранить файл');done()});return}
+  if(navigator.standalone&&navigator.canShare){try{var MT='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',fl=new File([buf],name,{type:MT});if(navigator.canShare({files:[fl]})){navigator.share({files:[fl]}).then(function(){setStatus('файл сохранен');done()},function(){done()});return}}catch(e){}}
+  try{var bl=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=name;document.body.appendChild(a);a.click();a.remove();setStatus('файл сохранен')}catch(e){setStatus('не удалось сохранить файл')}
+  done();
+}
+function doExport(){
+  if(!window.XLSX){setStatus('библиотека Excel не загрузилась');return}
+  allYears(function(ys){
+    try{var buf=XLSX.write(buildWb(ys),{type:'array',bookType:'xlsx'}),d=new Date();
+      saveFile('uchet-dohodov-'+d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)+'.xlsx',buf,function(){})}
+    catch(e){setStatus('ошибка выгрузки')}
+  });
+}
+function readImport(file){
+  var box=document.getElementById('impmsg');pendingImport=null;
+  var fr=new FileReader();
+  fr.onload=function(){
+    try{var wb=XLSX.read(fr.result,{type:'array'}),ws=wb.Sheets['_data'];if(!ws)throw 0;
+      var json=XLSX.utils.sheet_to_json(ws,{header:1}).map(function(r){return r[0]||''}).join(''),obj=JSON.parse(json);
+      if(obj.app!=='uchet-dohodov'||!obj.years)throw 0;
+      pendingImport=obj;var ys=Object.keys(obj.years).sort().join(', ');
+      box.innerHTML='<p>В файле найдены годы: <b>'+esc(ys)+'</b>. Записи этих лет и список валют будут заменены данными из файла. Другие годы не изменятся.</p><button class="btn pri" data-act="impok">Заменить данные</button> <button class="btn" data-act="impcancel">Отмена</button>'}
+    catch(e){box.innerHTML='<p class="neg">Это не резервная копия приложения. Выберите файл .xlsx, который выгрузило «Учет доходов».</p>'}
+  };
+  fr.readAsArrayBuffer(file);
+}
+function applyImport(){
+  var obj=pendingImport;if(!obj)return;pendingImport=null;
+  var ids=Object.keys(obj.years),left=ids.length+1,bad=false;
+  function one(){if(--left===0){settings=normSettings(obj.settings);loadYear(year,function(){render();setStatus(bad?'часть данных не восстановлена':'данные восстановлены')})}}
+  writeDoc('settings',normSettings(obj.settings),one,function(){bad=true;one()});
+  ids.forEach(function(y){writeDoc('y'+y,normY(obj.years[y]),one,function(){bad=true;one()})});
+}
+function go(d){year+=d;Y=null;render();loadYear(year,render)}
+document.getElementById('py').onclick=function(){go(-1)};
+document.getElementById('ny').onclick=function(){go(1)};
+document.getElementById('xl').onclick=doExport;
+function start(){
+  readDoc('settings',function(s){settings=normSettings(s);loadYear(year,render)});
+  var b=document.getElementById('xl');if(window.XLSX)b.hidden=false;
+  if(window.claude&&claude.use)claude.use('downloads').then(function(d){dlcap=d},function(){});
+}
+render();
+var cl=window.claude;
+if(cl&&cl.use){
+  var to=new Promise(function(r){setTimeout(function(){r([null,null])},4000)});
+  Promise.race([Promise.all([cl.use('db'),cl.use('user')]),to]).then(function(a){
+    db=a[0];var us=a[1];
+    if(db&&us){us.id().then(function(id){uid=id;start()},start)}else start()
+  },start);
+}else start();
+})();
+</script>
+
+<script>if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})});</script>
+</body>
+</html>
