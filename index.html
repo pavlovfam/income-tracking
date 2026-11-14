@@ -96,8 +96,11 @@ tfoot td{font-weight:600;border-bottom:0;background:var(--surface2)}
 .cl.pay label{width:132px}.cl.pay .del{margin-left:auto}
 @media (max-width:520px){.sum{margin-left:0;width:100%;text-align:left}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-.res output{font-weight:400}.res .src output{font-weight:700}
+.res output{font-weight:400;color:var(--ink2)}.res .src output{font-weight:700;color:var(--ink)}
+.res .big output{color:var(--ink2)}.res .big.src output{color:var(--pos)}
+.res div:not(.src) small{opacity:.8}
 td.src{font-weight:700}
+tr:has(td.src) td:not(.src):not(:first-child){color:var(--ink2)}
 .pend{font-size:12px;color:var(--ink2)}.pend.warn{color:var(--neg)}.pend.ok{color:var(--pos)}
 .strow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
 .strow>label,.strow .pd>label{width:150px}.strow .pd{display:contents}.strow.skip .pd{display:none}.sn{min-width:150px;font-weight:500;padding-bottom:7px}.sa{font-family:var(--mono);min-width:110px;padding-bottom:7px}
@@ -261,10 +264,15 @@ function viewUtil(){
     +'<p class="note">Показания «прошлый месяц» и тарифы подставляются из предыдущего месяца, пока вы не введете свои. Отметки об оплате общие с карточкой аренды.</p>';
 }
 var KIND={salary:['Зарплата','Источник / компания','Добавить зарплату'],interest:['Вклады','Счет / вклад','Добавить процент по вкладу'],other:['Прочие доходы','Что за доход','Добавить доход']};
+function periodSel(p,v){
+  var y=year,h='<option value="">—</option>',seen=false;
+  for(var yy=y-1;yy<=y;yy++)for(var m=0;m<12;m++){var val=yy+'-'+('0'+(m+1)).slice(-2);if(val===v)seen=true;h+='<option value="'+val+'"'+(val===v?' selected':'')+'>'+MON[m]+' '+yy+'</option>'}
+  if(v&&!seen){var q=/^(\d{4})-(\d\d)$/.exec(v);h+='<option value="'+esc(v)+'" selected>'+(q?MON[+q[2]-1]+' '+q[1]:esc(v))+'</option>'}
+  return '<label>За какой месяц<select data-p="'+p+'">'+h+'</select></label>'}
 function viewInc(kind){
   var h='',any=false,K=KIND[kind],L=act();
   Y.inc.forEach(function(x,i){if(x.kind!==kind)return;any=true;var p='inc.'+i+'.';
-    h+='<div class="card body"><div class="grid">'+f(p+'date','Дата получения','date')+f(p+'name',K[1],'text')+f(p+'amount','Сумма','num')+f(p+'cur','Валюта','cur')+rateFields(p,'inc',i)+'</div>'
+    h+='<div class="card body"><div class="grid">'+f(p+'date','Дата получения','date')+(kind==='salary'?periodSel(p+'period',x.period||''):'')+f(p+'name',K[1],'text')+f(p+'amount','Сумма','num')+f(p+'cur','Валюта','cur')+rateFields(p,'inc',i)+'</div>'
     +'<div class="res">'+L.map(function(c){return o('n:'+i+':'+c,sym(c))}).join('')+'</div>'
     +'<button class="del" data-del="'+i+'">Удалить</button></div>'});
   if(!any)h+='<div class="card empty">Записей за '+year+' год пока нет.</div>';
