@@ -99,6 +99,7 @@ tfoot td{font-weight:600;border-bottom:0;background:var(--surface2)}
 .res output{font-weight:400;color:var(--ink2)}.res .src output{font-weight:700;color:var(--ink)}
 .res .big output{color:var(--ink2)}.res .big.src output{color:var(--pos)}
 .res div:not(.src) small{opacity:.8}
+.ratewarn{grid-column:1/-1;font-size:12px;color:var(--neg)}.ratewarn:empty{display:none}
 td.src{font-weight:700}
 tr:has(td.src) td:not(.src):not(:first-child){color:var(--ink2)}
 .pend{font-size:12px;color:var(--ink2)}.pend.warn{color:var(--neg)}.pend.ok{color:var(--pos)}
@@ -141,8 +142,14 @@ function act(){return settings.cur.filter(function(x){return x.on}).map(function
 function fmt(n,c){if(!isFinite(n))return '—';var s=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);return c?s+' '+sym(c):s}
 
 /* Курсы: сколько единицы валюты за 1 $. Любая сумма -> доллары -> остальные валюты. Нет курса -> NaN (в интерфейсе прочерк). */
+function fillCross(rates){
+  var r=rates||{},x=num(r.KZT_RUB);if(!x)return r;
+  var rub=num(r.RUB),kzt=num(r.KZT);
+  if(!rub&&kzt){r=Object.assign({},r);r.RUB=kzt/x}else if(!kzt&&rub){r=Object.assign({},r);r.KZT=rub*x}
+  return r;
+}
 function conv(a,cur,rates){
-  a=num(a);rates=rates||{};var usd;
+  a=num(a);rates=fillCross(rates);var usd;
   if(cur==='USD')usd=a;else{var r=num(rates[cur]);usd=r?a/r:NaN}
   var out={USD:usd};
   settings.cur.forEach(function(x){var c=x.code;if(c==='USD')return;var r=num(rates[c]);out[c]=r?usd*r:NaN});
@@ -225,7 +232,10 @@ function f(p,label,type,ph){
 }
 function o(key,label,cls){return '<div'+(cls?' class="'+cls+'"':'')+'><small>'+label+'</small><output data-c="'+key+'"></output></div>'}
 function nowOpen(i){return year===new Date().getFullYear()&&i===new Date().getMonth()?' open':''}
-function rateFields(base,kind,i){return act().filter(function(c){return c!=='USD'}).map(function(c){return f(base+'rates.'+c,'Курс: '+sym(c)+' за 1 $','num','k:'+kind+':'+i+':'+c)}).join('')}
+function rateFields(base,kind,i){
+  var L=act(),h=L.filter(function(c){return c!=='USD'}).map(function(c){return f(base+'rates.'+c,'Курс: '+sym(c)+' за 1 $','num')}).join('');
+  if(L.indexOf('RUB')>=0&&L.indexOf('KZT')>=0)h+=f(base+'rates.KZT_RUB','Курс: '+sym('KZT')+' за 1 '+sym('RUB'),'num')+'<div class="ratewarn" data-c="x:'+kind+':'+i+'"></div>';
+  return h}
 
 function viewStatus(i){
   var p='util.'+i+'.';
@@ -383,7 +393,6 @@ function render(){
   refresh();
 }
 function setSrc(e,on){var d=e.parentNode;if(d&&d.classList)d.classList.toggle('src',on)}
-function lastRate(kind,i,c){var A=kind==='rent'?Y.rent:Y.inc;for(var j=i-1;j>=0;j--){var r=A[j].rates;if(r&&has(r[c]))return r[c]}return ''}
 function refresh(){
   if(!Y)return;
   var TC=document.querySelector('[data-c^="t:"]')?titheCalc():null;
@@ -396,6 +405,8 @@ function refresh(){
       else if(n==='sum')v=c.a?'нетто '+fmt(c.net,cu):'нет данных'}
     else if(t==='s'){var q=pend(i);v=!q.any?'':q.list.length?'ждёт: '+q.list.join(', '):'все оплачено';
       e.className='pend'+(q.any?(q.list.length?' warn':' ok'):'')}
+    else if(t==='x'){var rr=(k[1]==='rent'?Y.rent[+k[2]]:Y.inc[+k[2]]);rr=rr&&rr.rates||{};var q1=num(rr.RUB),q2=num(rr.KZT),q3=num(rr.KZT_RUB);
+      if(q1&&q2&&q3){var im=q2/q1;if(Math.abs(im/q3-1)>0.01)v='Курсы не сходятся: по курсам к доллару выходит '+String(Math.round(im*100)/100).replace('.',',')+' '+sym('KZT')+' за 1 '+sym('RUB')+'. Для расчёта берутся курсы к доллару.'}}
     else if(t==='p'){var c3=rentCalc(i);v=fmt(n==='w'?c3.water:c3.elec,Y.rent[i].cur)}
     else if(t==='u'){var u=utilCalc(i),L={cwU:u.cold.use,cwS:u.cold.sum,hwU:u.hot.use,hwS:u.hot.sum,swU:u.sewUse,swS:u.sew,water:u.water,
         e1U:u.t1.use,e1S:u.t1.sum,e2U:u.t2.use,e2S:u.t2.sum,e3U:u.t3.use,e3S:u.t3.sum,el:u.el,sub:u.sub,total:u.total};
@@ -412,7 +423,6 @@ function refresh(){
   document.querySelectorAll('[data-ph]').forEach(function(e){
     var k=e.getAttribute('data-ph').split(':'),v='';
     if(k[0]==='r'){var i=+k[1],u=utilCalc(i);v=k[2]==='waterph'?Math.round(u.water*100)/100:Math.round(u.el*100)/100}
-    else if(k[0]==='k')v=lastRate(k[1],+k[2],k[3]);
     else{var j=+k[1],n=k[2];v=/P$/.test(n)?prevR(j,n.replace(/P$/,'')):tariff(j,n)}
     e.placeholder=v===''?'':String(v)});
 }
