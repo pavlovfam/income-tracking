@@ -99,6 +99,9 @@ tfoot td{font-weight:600;border-bottom:0;background:var(--surface2)}
 .res output{font-weight:400;color:var(--ink2)}.res .src output{font-weight:700;color:var(--ink)}
 .res .big output{color:var(--ink2)}.res .big.src output{color:var(--pos)}
 .res div:not(.src) small{opacity:.8}
+.incard>summary{flex-wrap:nowrap}.in-main{flex:1;min-width:0;display:grid;gap:1px}.in-main .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.in-main .meta{color:var(--ink2);font-size:12px}.in-amt{font-family:var(--mono);font-weight:700;font-size:14px;white-space:nowrap}
+.act{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .ratewarn{grid-column:1/-1;font-size:12px;color:var(--neg)}.ratewarn:empty{display:none}
 td.src{font-weight:700}
 tr:has(td.src) td:not(.src):not(:first-child){color:var(--ink2)}
@@ -131,7 +134,7 @@ tr:has(td.src) td:not(.src):not(:first-child){color:var(--ink2)}
 var MON=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 var DEF=[{code:'RUB',sym:'₽',on:true},{code:'USD',sym:'$',on:true},{code:'KZT',sym:'₸',on:true}];
 var settings={cur:DEF.map(function(x){return{code:x.code,sym:x.sym,on:x.on}})};
-var year=new Date().getFullYear(),tab='sum',Y=null,db=null,uid=null,timers={},dlcap=null,pendingImport=null,PU=[],payOpen=false;
+var year=new Date().getFullYear(),tab='sum',Y=null,db=null,uid=null,timers={},dlcap=null,pendingImport=null,PU=[],payOpen=false,openInc={};
 var TABS=[['sum','Сводка'],['tithe','Десятина'],['util','Коммуналка'],['settings','Настройки'],['rent','Аренда'],['salary','Зарплата'],['interest','Вклады'],['other','Прочее']];
 function num(v){var n=parseFloat(String(v==null?'':v).replace(/[\s\u00a0]/g,'').replace(',','.'));return isFinite(n)?n:0}
 function has(v){return v!==null&&v!==undefined&&v!==''}
@@ -279,12 +282,14 @@ function periodSel(p,v){
   for(var yy=y-1;yy<=y;yy++)for(var m=0;m<12;m++){var val=yy+'-'+('0'+(m+1)).slice(-2);if(val===v)seen=true;h+='<option value="'+val+'"'+(val===v?' selected':'')+'>'+MON[m]+' '+yy+'</option>'}
   if(v&&!seen){var q=/^(\d{4})-(\d\d)$/.exec(v);h+='<option value="'+esc(v)+'" selected>'+(q?MON[+q[2]-1]+' '+q[1]:esc(v))+'</option>'}
   return '<label>За какой месяц<select data-p="'+p+'">'+h+'</select></label>'}
+function perLabel(v){var q=/^(\d{4})-(\d\d)$/.exec(v||'');return q?MON[+q[2]-1]+' '+q[1]:''}
 function viewInc(kind){
   var h='',any=false,K=KIND[kind],L=act();
   Y.inc.forEach(function(x,i){if(x.kind!==kind)return;any=true;var p='inc.'+i+'.';
-    h+='<div class="card body"><div class="grid">'+f(p+'date','Дата получения','date')+(kind==='salary'?periodSel(p+'period',x.period||''):'')+f(p+'name',K[1],'text')+f(p+'amount','Сумма','num')+f(p+'cur','Валюта','cur')+rateFields(p,'inc',i)+'</div>'
+    h+='<details class="card incard" data-inc="'+i+'"'+(openInc[i]?' open':'')+'><summary><span class="in-main"><b class="nm" data-c="m:'+i+'"></b><small class="meta"><span data-c="d:'+i+'"></span> <span class="pend warn" data-c="z:'+i+'"></span></small></span><span class="in-amt" data-c="v:'+i+'"></span></summary>'
+    +'<div class="body"><div class="grid">'+f(p+'date','Дата получения','date')+(kind==='salary'?periodSel(p+'period',x.period||''):'')+f(p+'name',K[1],'text')+f(p+'amount','Сумма','num')+f(p+'cur','Валюта','cur')+rateFields(p,'inc',i)+'</div>'
     +'<div class="res">'+L.map(function(c){return o('n:'+i+':'+c,sym(c))}).join('')+'</div>'
-    +'<button class="del" data-del="'+i+'">Удалить</button></div>'});
+    +'<div class="act"><button class="btn" data-done="'+i+'">Готово</button><button class="del" data-del="'+i+'">Удалить</button></div></div></details>'});
   if(!any)h+='<div class="card empty">Записей за '+year+' год пока нет.</div>';
   return h+'<button class="add" data-add="'+kind+'">+ '+K[2]+'</button>';
 }
@@ -418,6 +423,12 @@ function refresh(){
       else if(w==='left'){v=isFinite(lv)?((c2!==TC.main?'≈ ':'')+fmt(Math.abs(lv)<0.005?0:Math.abs(lv),c2)):'—'}
       else if(w==='last')v=TC.last?'Последняя оплата: '+fmtDate(TC.last.date)+', '+fmt(num(TC.last.amount),TC.last.cur):'';
       else if(w==='warn')v=TC.warn?('Оплат без суммы «в зачёт»: '+TC.warn+'. Они не учтены в остатке.'):''}
+    else if(t==='m'||t==='d'||t==='z'||t==='v'){var xi=Y.inc[i];
+      if(xi){
+        if(t==='m')v=xi.name||'Без названия';
+        else if(t==='d')v=[xi.date?fmtDate(xi.date):'',xi.kind==='salary'&&xi.period?'за '+perLabel(xi.period).toLowerCase():''].filter(Boolean).join(' · ');
+        else if(t==='v')v=num(xi.amount)?fmt(num(xi.amount),xi.cur):'';
+        else{var cz=conv(xi.amount,xi.cur,xi.rates);v=!num(xi.amount)?'нет суммы':act().some(function(c){return !isFinite(cz[c])})?'нет курса':''}}}
     else if(t==='n'){var x=Y.inc[i],cc=conv(x.amount,x.cur,x.rates);v=fmt(cc[n],n);setSrc(e,n===x.cur)}
     e.textContent=v});
   document.querySelectorAll('[data-ph]').forEach(function(e){
@@ -445,11 +456,13 @@ document.addEventListener('change',function(e){
   if(t.id==='impfile'&&t.files&&t.files[0])readImport(t.files[0]);
   if(t.id==='tpCur'){var mc=mainCur(),cl=document.getElementById('tpCrL');if(cl)cl.hidden=!(mc&&t.value!==mc)}
 });
+document.addEventListener('toggle',function(e){var d=e.target;if(d&&d.dataset&&d.dataset.inc!==undefined){if(d.open)openInc[+d.dataset.inc]=true;else delete openInc[+d.dataset.inc]}},true);
 document.addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
-  if(b.dataset.tab){tab=b.dataset.tab;render();return}
-  if(b.dataset.add){Y.inc.push({kind:b.dataset.add,cur:'RUB',rates:{}});saveYear();render();return}
-  if(b.dataset.del!==undefined){if(b.dataset.armed){Y.inc.splice(+b.dataset.del,1);saveYear();render()}else{b.dataset.armed='1';b.textContent='Нажмите еще раз';setTimeout(function(){if(b.isConnected){delete b.dataset.armed;b.textContent='Удалить'}},3000)}return}
+  if(b.dataset.tab){if(tab!==b.dataset.tab)openInc={};tab=b.dataset.tab;render();return}
+  if(b.dataset.done!==undefined){var dd=b.closest('details');if(dd)dd.open=false;return}
+  if(b.dataset.add){Y.inc.push({kind:b.dataset.add,cur:'RUB',rates:{}});openInc[Y.inc.length-1]=true;saveYear();render();return}
+  if(b.dataset.del!==undefined){if(b.dataset.armed){var di=+b.dataset.del;Y.inc.splice(di,1);var no={};Object.keys(openInc).forEach(function(k){k=+k;if(k<di)no[k]=true;else if(k>di)no[k-1]=true});openInc=no;saveYear();render()}else{b.dataset.armed='1';b.textContent='Нажмите еще раз';setTimeout(function(){if(b.isConnected){delete b.dataset.armed;b.textContent='Удалить'}},3000)}return}
   if(b.dataset.delpay!==undefined){if(b.dataset.armed){titheData().pays.splice(+b.dataset.delpay,1);saveYear();render()}else{b.dataset.armed='1';b.textContent='Нажмите еще раз';setTimeout(function(){if(b.isConnected){delete b.dataset.armed;b.textContent='Удалить'}},3000)}return}
   var a=b.dataset.act;
   if(a==='paytoggle'){payOpen=!payOpen;render()}
@@ -538,7 +551,7 @@ function applyImport(){
   writeDoc('settings',normSettings(obj.settings),one,function(){bad=true;one()});
   ids.forEach(function(y){writeDoc('y'+y,normY(obj.years[y]),one,function(){bad=true;one()})});
 }
-function setYear(y){if(!y||y===year)return;year=y;payOpen=false;Y=null;render();loadYear(year,render)}
+function setYear(y){if(!y||y===year)return;year=y;payOpen=false;openInc={};Y=null;render();loadYear(year,render)}
 document.getElementById('ys').onchange=function(){setYear(+this.value)};
 function start(){
   readDoc('settings',function(s){settings=normSettings(s);if(!settings.lastBackup&&!settings.since){settings.since=Date.now();saveSettings()}loadYear(year,render)});
