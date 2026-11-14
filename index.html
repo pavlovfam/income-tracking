@@ -265,7 +265,7 @@ function viewInc(kind){
   var h='',any=false,K=KIND[kind],L=act();
   Y.inc.forEach(function(x,i){if(x.kind!==kind)return;any=true;var p='inc.'+i+'.';
     h+='<div class="card body"><div class="grid">'+f(p+'date','Дата получения','date')+f(p+'name',K[1],'text')+f(p+'amount','Сумма','num')+f(p+'cur','Валюта','cur')+rateFields(p,'inc',i)+'</div>'
-    +'<div class="res">'+L.map(function(c){return o('n:'+i+':'+c,'В '+sym(c))}).join('')+'</div>'
+    +'<div class="res">'+L.map(function(c){return o('n:'+i+':'+c,sym(c))}).join('')+'</div>'
     +'<button class="del" data-del="'+i+'">Удалить</button></div>'});
   if(!any)h+='<div class="card empty">Записей за '+year+' год пока нет.</div>';
   return h+'<button class="add" data-add="'+kind+'">+ '+K[2]+'</button>';
