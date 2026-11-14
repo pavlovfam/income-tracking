@@ -37,6 +37,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 h1{font-size:15px;font-weight:600;margin:0;letter-spacing:.01em}
 .top-r{display:flex;align-items:center;gap:8px}
 .year{display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:1px}
+.year select{border:0;background:transparent;font-family:var(--mono);font-size:14px;font-weight:500;padding:5px 6px 5px 10px;border-radius:6px;color:inherit;min-width:70px}
 .year b{font-family:var(--mono);font-size:14px;font-weight:500;min-width:44px;text-align:center}
 button{font:inherit;color:inherit;cursor:pointer}
 .year button{border:0;background:transparent;width:30px;height:28px;border-radius:6px;font-size:16px;line-height:1}
@@ -99,7 +100,7 @@ tfoot td{font-weight:600;border-bottom:0;background:var(--surface2)}
 td.src{font-weight:700}
 .pend{font-size:12px;color:var(--ink2)}.pend.warn{color:var(--neg)}.pend.ok{color:var(--pos)}
 .strow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
-.strow>label{width:150px}.sn{min-width:150px;font-weight:500;padding-bottom:7px}.sa{font-family:var(--mono);min-width:110px;padding-bottom:7px}
+.strow>label,.strow .pd>label{width:150px}.strow .pd{display:contents}.strow.skip .pd{display:none}.sn{min-width:150px;font-weight:500;padding-bottom:7px}.sa{font-family:var(--mono);min-width:110px;padding-bottom:7px}
 .raw{margin:0;padding:10px 14px;font-size:13px;color:var(--ink2)}.raw b{font-family:var(--mono);color:var(--ink);font-weight:500}
 .cl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
 .cl:last-child{border-bottom:0}.cl b{font-family:var(--mono);min-width:48px}
@@ -114,7 +115,7 @@ td.src{font-weight:700}
 <header>
   <div class="top">
     <h1>Учет доходов <span id="status"></span></h1>
-    <div class="top-r"><div class="year"><button id="py" aria-label="Предыдущий год">‹</button><b id="yl"></b><button id="ny" aria-label="Следующий год">›</button></div></div>
+    <div class="top-r"><div class="year"><select id="ys" aria-label="Год"></select></div></div>
   </div>
   <nav id="tabs" role="tablist"></nav>
 </header>
@@ -204,9 +205,9 @@ function rentCalc(i){
 function pend(i){
   if(!hasData(i))return{any:false,list:[]};
   var c=rentCalc(i),r=Y.util[i],p=[],any=false,n=num(tariff(i,'inet'));
-  if(c.water>0){any=true;if(!r.wPaid)p.push('вода и КПУ')}
-  if(c.elec>0){any=true;if(!r.ePaid)p.push('электричество')}
-  if(n>0){any=true;if(!r.iPaid)p.push('интернет')}
+  if(c.water>0){any=true;if(!r.wPaid&&!r.wSkip)p.push('вода и КПУ')}
+  if(c.elec>0){any=true;if(!r.ePaid&&!r.eSkip)p.push('электричество')}
+  if(n>0){any=true;if(!r.iPaid&&!r.iSkip)p.push('интернет')}
   return{any:any,list:p};
 }
 window.__t={conv:conv,rentCalc:rentCalc,utilCalc:utilCalc,pend:pend,setY:function(y,pu){Y=y;PU=pu||[]},settings:settings};
@@ -225,7 +226,7 @@ function rateFields(base,kind,i){return act().filter(function(c){return c!=='USD
 
 function viewStatus(i){
   var p='util.'+i+'.';
-  function row(name,amt,k){return '<div class="strow"><span class="sn">'+name+'</span>'+amt+f(p+k+'Paid','Оплатил','check')+f(p+k+'Date','Дата оплаты','date')+'</div>'}
+  function row(name,amt,k){var sk=Y.util[i][k+'Skip'];return '<div class="strow'+(sk?' skip':'')+'"><span class="sn">'+name+'</span>'+amt+'<span class="pd">'+f(p+k+'Paid','Оплатил','check')+f(p+k+'Date','Дата оплаты','date')+'</span>'+f(p+k+'Skip','Не нужно','check').replace('class="chk"','class="chk sk"')+'</div>'}
   return '<div class="sec">Оплата квартирантом</div>'
     +row('Вода и КПУ','<span class="sa" data-c="p:'+i+':w"></span>','w')
     +row('Электричество','<span class="sa" data-c="p:'+i+':e"></span>','e')
@@ -354,6 +355,11 @@ function viewTithe(){
     +(payOpen?viewPayPanel(main):'')+base
     +'<p class="note">Десятина считается от чистого дохода за год по итогам «Сводки». Остаток в других валютах приблизительный: та же доля, что осталась доплатить в основной.</p>';
 }
+function yearSel(){
+  var el=document.getElementById('ys'),to=Math.max(new Date().getFullYear()+1,year),from=Math.min(2025,year),h='';
+  for(var y=to;y>=from;y--)h+='<option value="'+y+'"'+(y===year?' selected':'')+'>'+y+'</option>';
+  if(el.innerHTML!==h)el.innerHTML=h;el.value=String(year);
+}
 function lastSat9(){var n=new Date(),d=new Date(n);d.setHours(9,0,0,0);d.setDate(d.getDate()-(d.getDay()+1)%7);if(d>n)d.setDate(d.getDate()-7);return d.getTime()}
 function lbDate(){var d=new Date(settings.lastBackup);return ('0'+d.getDate()).slice(-2)+'.'+('0'+(d.getMonth()+1)).slice(-2)+'.'+d.getFullYear()}
 function backupDue(){var b=settings.lastBackup||settings.since;return !!b&&b<lastSat9()}
@@ -362,7 +368,7 @@ function renderTabs(){
 }
 function markBackup(){settings.lastBackup=Date.now();saveSettings();renderTabs();if(tab==='settings')render()}
 function render(){
-  document.getElementById('yl').textContent=year;
+  yearSel();
   renderTabs();
   var m=document.getElementById('main');
   m.innerHTML=!Y?'<div class="empty">Загрузка…</div>':tab==='sum'?viewSum():tab==='rent'?viewRent():tab==='util'?viewUtil():tab==='settings'?viewSettings():tab==='tithe'?viewTithe():viewInc(tab);
@@ -406,6 +412,12 @@ function onField(e){
   if(e.target.getAttribute&&e.target.getAttribute('inputmode')==='decimal'){var raw=e.target.value,cl=raw.replace(/[^0-9.,\-\s]/g,'');if(cl!==raw)e.target.value=cl}
   var p=e.target.getAttribute&&e.target.getAttribute('data-p');if(!p||!Y)return;
   setP(p,e.target.type==='checkbox'?e.target.checked:e.target.value);saveYear();
+  var sm=/^(util\.\d+\.[wei])(Paid|Skip)$/.exec(p);
+  if(sm){var row=e.target.closest('.strow');
+    if(sm[2]==='Skip'&&e.target.checked){setP(sm[1]+'Paid',false);setP(sm[1]+'Date','');if(row){var cb=row.querySelector('.pd input[type=checkbox]'),di=row.querySelector('.pd input[type=date]');if(cb)cb.checked=false;if(di)di.value=''}}
+    if(sm[2]==='Paid'&&e.target.checked){setP(sm[1]+'Skip',false);if(row){var sc=row.querySelector('.sk input');if(sc)sc.checked=false;row.classList.remove('skip')}}
+    if(sm[2]==='Skip'&&row)row.classList.toggle('skip',e.target.checked);
+  }
   if(p==='tithe.main'||/^tithe\.pays\.\d+\.cur$/.test(p)){render();return}
   refresh()}
 document.addEventListener('input',onField);document.addEventListener('change',onField);
@@ -508,9 +520,8 @@ function applyImport(){
   writeDoc('settings',normSettings(obj.settings),one,function(){bad=true;one()});
   ids.forEach(function(y){writeDoc('y'+y,normY(obj.years[y]),one,function(){bad=true;one()})});
 }
-function go(d){year+=d;payOpen=false;Y=null;render();loadYear(year,render)}
-document.getElementById('py').onclick=function(){go(-1)};
-document.getElementById('ny').onclick=function(){go(1)};
+function setYear(y){if(!y||y===year)return;year=y;payOpen=false;Y=null;render();loadYear(year,render)}
+document.getElementById('ys').onchange=function(){setYear(+this.value)};
 function start(){
   readDoc('settings',function(s){settings=normSettings(s);if(!settings.lastBackup&&!settings.since){settings.since=Date.now();saveSettings()}loadYear(year,render)});
   if(window.claude&&claude.use)claude.use('downloads').then(function(d){dlcap=d},function(){});
