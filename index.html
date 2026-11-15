@@ -102,6 +102,7 @@ tfoot td{font-weight:600;border-bottom:0;background:var(--surface2)}
 .res .cc:not(.src) small{opacity:.8}
 .incard>summary{flex-wrap:nowrap}.in-main{flex:1;min-width:0;display:grid;gap:1px}.in-main .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .in-main .meta{color:var(--ink2);font-size:12px}.in-amt{font-family:var(--mono);font-weight:700;font-size:14px;white-space:nowrap}
+.g2{grid-template-columns:1fr 1fr!important}
 .grid>div{background:var(--surface2);border-radius:8px;padding:8px 10px;align-self:end}.grid>div small{display:block;font-size:11px;color:var(--ink2)}.grid>div output{font-family:var(--mono);font-size:15px;font-weight:500;font-variant-numeric:tabular-nums}
 .act{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .ratewarn{grid-column:1/-1;font-size:12px;color:var(--neg)}.ratewarn:empty{display:none}
@@ -109,7 +110,7 @@ td.src{font-weight:700}
 tr:has(td.src) td:not(.src):not(:first-child){color:var(--ink2)}
 .pend{font-size:12px;color:var(--ink2)}.pend.warn{color:var(--neg)}.pend.ok{color:var(--pos)}
 .strow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
-.strow>label,.strow .pd>label{width:150px}.strow .pd{display:contents}.strow.skip .pd{display:none}.sn{min-width:150px;font-weight:500;padding-bottom:7px}.sa{font-family:var(--mono);min-width:110px;padding-bottom:7px}
+.strow>label,.strow .pd>label{width:150px}.strow .pd{display:contents}.strow.skip .pd{display:none}.strow.paid .sk{display:none}.sn{min-width:150px;font-weight:500;padding-bottom:7px}.sa{font-family:var(--mono);min-width:110px;padding-bottom:7px}
 .raw{margin:0;padding:10px 14px;font-size:13px;color:var(--ink2)}.raw b{font-family:var(--mono);color:var(--ink);font-weight:500}
 .cl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
 .cl:last-child{border-bottom:0}.cl b{font-family:var(--mono);min-width:48px}
@@ -162,11 +163,17 @@ function conv(a,cur,rates){
 }
 function mig(o){if(!o.rates){o.rates={};if(has(o.usdRub))o.rates.RUB=o.usdRub;if(has(o.usdKzt))o.rates.KZT=o.usdKzt}return o}
 function blankYear(){var r=[],u=[];for(var i=0;i<12;i++){r.push({cur:'RUB',taxPct:'4',rates:{}});u.push({})}return{rent:r,util:u,inc:[],tithe:{main:'',pays:[]}}}
+function commaNums(o){
+  if(!o||typeof o!=='object')return;
+  Object.keys(o).forEach(function(k){var v=o[k];
+    if(typeof v==='string'){if(k!=='name'&&k!=='maintNote'&&k!=='otherNote'&&/^-?\d+\.\d+$/.test(v))o[k]=v.replace('.',',')}
+    else if(v&&typeof v==='object')commaNums(v)});
+}
 function normY(d){
   var b=blankYear();d=d||{};
   if(d.rent&&d.rent.length===12)b.rent=d.rent;if(d.util&&d.util.length===12)b.util=d.util;b.inc=d.inc||[];b.tithe=(d.tithe&&d.tithe.pays)?d.tithe:{main:'',pays:[]};
   b.rent.forEach(function(m,i){mig(m);if(has(m.inet)&&!has(b.util[i].inet))b.util[i].inet=m.inet;delete m.inet});
-  b.inc.forEach(mig);return b;
+  b.inc.forEach(mig);commaNums(b.rent);commaNums(b.util);commaNums(b.inc);commaNums(b.tithe.pays);return b;
 }
 function normSettings(s){
   var out=DEF.map(function(x){return{code:x.code,sym:x.sym,on:true}});
@@ -218,12 +225,15 @@ function rentCalc(i){
 }
 /* Статусы оплаты квартирантом (общие для аренды и коммуналки) */
 function pend(i){
-  if(!hasData(i))return{any:false,list:[]};
-  var c=rentCalc(i),r=Y.util[i],p=[],any=false,n=num(tariff(i,'inet'));
-  if(c.water>0){any=true;if(!r.wPaid&&!r.wSkip)p.push('вода и КПУ')}
-  if(c.elec>0){any=true;if(!r.ePaid&&!r.eSkip)p.push('электричество')}
-  if(n>0){any=true;if(!r.iPaid&&!r.iSkip)p.push('интернет')}
-  return{any:any,list:p};
+  var now=new Date(),cy=now.getFullYear(),cm=now.getMonth();
+  if(year>cy||(year===cy&&i>cm))return{any:false,list:[]};
+  var first=-1;for(var k=0;k<12;k++){if(has(Y.rent[k].amount)){first=k;break}}
+  if(first<0||i<first)return{any:false,list:[]};
+  var c=rentCalc(i),r=Y.util[i],p=[];
+  if(!r.wPaid&&!r.wSkip)p.push(c.water>0?'вода и КПУ':'вода и КПУ (нет показаний)');
+  if(!r.ePaid&&!r.eSkip)p.push(c.elec>0?'электричество':'электричество (нет показаний)');
+  if(!r.iPaid&&!r.iSkip)p.push(num(tariff(i,'inet'))>0?'интернет':'интернет (нет суммы)');
+  return{any:true,list:p};
 }
 window.__t={conv:conv,rentCalc:rentCalc,utilCalc:utilCalc,pend:pend,setY:function(y,pu){Y=y;PU=pu||[]},settings:settings};
 function getP(p){var s=p.split('.'),o=Y;for(var i=0;i<s.length;i++){if(o==null)return '';o=o[s[i]]}return o==null?'':o}
@@ -244,7 +254,7 @@ function rateFields(base,kind,i){
 
 function viewStatus(i){
   var p='util.'+i+'.';
-  function row(name,amt,k){var sk=Y.util[i][k+'Skip'];return '<div class="strow'+(sk?' skip':'')+'"><span class="sn">'+name+'</span>'+amt+'<span class="pd">'+f(p+k+'Paid','Оплатил','check')+f(p+k+'Date','Дата оплаты','date')+'</span>'+f(p+k+'Skip','Не нужно','check').replace('class="chk"','class="chk sk"')+'</div>'}
+  function row(name,amt,k){var sk=Y.util[i][k+'Skip'];return '<div class="strow'+(sk?' skip':'')+(Y.util[i][k+'Paid']?' paid':'')+'"><span class="sn">'+name+'</span>'+amt+'<span class="pd">'+f(p+k+'Paid','Оплатил','check')+f(p+k+'Date','Дата оплаты','date')+'</span>'+f(p+k+'Skip','Не нужно','check').replace('class="chk"','class="chk sk"')+'</div>'}
   return '<div class="sec">Оплата квартирантом</div>'
     +row('Вода и КПУ','<span class="sa" data-c="p:'+i+':w"></span>','w')
     +row('Электричество','<span class="sa" data-c="p:'+i+':e"></span>','e')
@@ -256,8 +266,8 @@ function viewRent(){
     return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="pend" data-c="s:'+i+':pend"></span><span class="sum" data-c="r:'+i+':sum"></span></summary><div class="body">'
     +'<div class="grid">'+f(p+'date','Дата получения','date')+f(p+'amount','Арендная плата','num')+f(p+'cur','Валюта','cur')+rateFields(p,'rent',i)+f(p+'taxPct','Налог, %','num')+'</div>'
     +'<div class="sec">Расходы (в валюте аренды)</div>'
-    +'<div class="grid">'+f(p+'jkh','Коммуналка по квитанции','num')+f(p+'water','Вода и КПУ (вычитается)','num','r:'+i+':waterph')+f(p+'elec','Электричество (учет)','num','r:'+i+':elecph')
-    +f(p+'maint','Maintenance','num')+f(p+'maintNote','Что именно','text')+f(p+'other','Прочие расходы','num')+f(p+'otherNote','Что именно','text')+'</div>'
+    +'<div class="grid">'+f(p+'jkh','Коммуналка по квитанции','num')+f(p+'water','Вода и КПУ (вычитается)','num','r:'+i+':waterph')+f(p+'elec','Электричество (не вычитается)','num','r:'+i+':elecph')+'</div>'
+    +'<div class="grid g2">'+f(p+'maint','Maintenance','num')+f(p+'maintNote','Уточнение','text')+f(p+'other','Прочие расходы','num')+f(p+'otherNote','Уточнение','text')+'</div>'
     +'<div class="res">'+o('r:'+i+':tax','Налог')+L.map(function(c){return o('r:'+i+':exp:'+c,'Расходы, '+sym(c))}).join('')+'</div>'
     +'<div class="res">'+L.map(function(c){return o('r:'+i+':inc:'+c,'Доход, '+sym(c),'big')}).join('')+'</div>'
     +viewStatus(i)+'<div class="act"><button class="btn" data-done="'+i+'">Готово</button></div></div></details>'}).join('')
@@ -440,13 +450,13 @@ function refresh(){
     e.placeholder=v===''?'':String(v)});
 }
 function onField(e){
-  if(e.target.getAttribute&&e.target.getAttribute('inputmode')==='decimal'){var raw=e.target.value,cl=raw.replace(/[^0-9.,\-\s]/g,'');if(cl!==raw)e.target.value=cl}
+  if(e.target.getAttribute&&e.target.getAttribute('inputmode')==='decimal'){var raw=e.target.value,cl=raw.replace(/[^0-9.,\-\s]/g,'').replace(/\./g,',');if(cl!==raw){var pos=e.target.selectionStart,d0=raw.length-cl.length;e.target.value=cl;try{e.target.setSelectionRange(Math.max(0,pos-d0),Math.max(0,pos-d0))}catch(x){}}}
   var p=e.target.getAttribute&&e.target.getAttribute('data-p');if(!p||!Y)return;
   setP(p,e.target.type==='checkbox'?e.target.checked:e.target.value);saveYear();
   var sm=/^(util\.\d+\.[wei])(Paid|Skip)$/.exec(p);
   if(sm){var row=e.target.closest('.strow');
     if(sm[2]==='Skip'&&e.target.checked){setP(sm[1]+'Paid',false);setP(sm[1]+'Date','');if(row){var cb=row.querySelector('.pd input[type=checkbox]'),di=row.querySelector('.pd input[type=date]');if(cb)cb.checked=false;if(di)di.value=''}}
-    if(sm[2]==='Paid'&&e.target.checked){setP(sm[1]+'Skip',false);if(row){var sc=row.querySelector('.sk input');if(sc)sc.checked=false;row.classList.remove('skip')}}
+    if(sm[2]==='Paid'){if(e.target.checked)setP(sm[1]+'Skip',false);if(row){if(e.target.checked){var sc=row.querySelector('.sk input');if(sc)sc.checked=false;row.classList.remove('skip')}row.classList.toggle('paid',e.target.checked)}}
     if(sm[2]==='Skip'&&row)row.classList.toggle('skip',e.target.checked);
   }
   if(p==='tithe.main'||/^tithe\.pays\.\d+\.cur$/.test(p)){render();return}
