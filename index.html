@@ -84,7 +84,7 @@ tfoot td{font-weight:600;border-bottom:0;background:var(--surface2)}
 .tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .tot .card{padding:12px 14px}
 .tot h3{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)}
-.tot p{margin:0;font-family:var(--mono);display:flex;justify-content:space-between;gap:10px}
+.tot p{margin:0;font-family:var(--mono);display:flex;justify-content:flex-end;gap:6px}.tot p .s{width:1.1em;text-align:left;color:var(--ink2)}
 .tot .all{border-color:var(--accent)}
 .add,.del{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px}
 .add{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500;justify-self:start}
@@ -92,15 +92,17 @@ tfoot td{font-weight:600;border-bottom:0;background:var(--surface2)}
 .empty{padding:28px 16px;text-align:center;color:var(--ink2)}
 #status{font-size:11px;font-weight:400;color:var(--ink2)}
 .xs{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:7px;padding:5px 10px;font-size:12px;font-weight:500}
-.tot .all span+span{font-weight:700}.tot .dim p{color:var(--ink2)}.tot .dim{background:transparent}
+.tot .all .v{font-weight:700}.tot .dim p{color:var(--ink2)}.tot .dim{background:transparent}
 .cl.pay label{width:132px}.cl.pay .del{margin-left:auto}
 @media (max-width:520px){.sum{margin-left:0;width:100%;text-align:left}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-.res output{font-weight:400;color:var(--ink2)}.res .src output{font-weight:700;color:var(--ink)}
-.res .big output{color:var(--ink2)}.res .big.src output{color:var(--pos)}
-.res div:not(.src) small{opacity:.8}
+.res output{font-weight:400}.res .cc output{color:var(--ink2)}.res .cc.src output{font-weight:700;color:var(--ink)}
+.incard .res .cc.src output{color:var(--pos)}
+.res .big output{color:var(--pos)}.res .big.cc output{color:var(--ink2)}.res .big.cc.src output{color:var(--pos)}
+.res .cc:not(.src) small{opacity:.8}
 .incard>summary{flex-wrap:nowrap}.in-main{flex:1;min-width:0;display:grid;gap:1px}.in-main .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .in-main .meta{color:var(--ink2);font-size:12px}.in-amt{font-family:var(--mono);font-weight:700;font-size:14px;white-space:nowrap}
+.grid>div{background:var(--surface2);border-radius:8px;padding:8px 10px;align-self:end}.grid>div small{display:block;font-size:11px;color:var(--ink2)}.grid>div output{font-family:var(--mono);font-size:15px;font-weight:500;font-variant-numeric:tabular-nums}
 .act{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .ratewarn{grid-column:1/-1;font-size:12px;color:var(--neg)}.ratewarn:empty{display:none}
 td.src{font-weight:700}
@@ -258,7 +260,7 @@ function viewRent(){
     +f(p+'maint','Maintenance','num')+f(p+'maintNote','Что именно','text')+f(p+'other','Прочие расходы','num')+f(p+'otherNote','Что именно','text')+'</div>'
     +'<div class="res">'+o('r:'+i+':tax','Налог')+L.map(function(c){return o('r:'+i+':exp:'+c,'Расходы, '+sym(c))}).join('')+'</div>'
     +'<div class="res">'+L.map(function(c){return o('r:'+i+':inc:'+c,'Доход, '+sym(c),'big')}).join('')+'</div>'
-    +viewStatus(i)+'</div></details>'}).join('')
+    +viewStatus(i)+'<div class="act"><button class="btn" data-done="'+i+'">Готово</button></div></div></details>'}).join('')
     +'<p class="note">Расходы = налог + коммуналка + maintenance + прочее − вода и КПУ. Электричество и интернет в расходы не входят, их возмещает квартирант. Если «Вода и КПУ» или «Электричество» не заполнены, берется сумма из вкладки «Коммуналка». Жирным выделена валюта, в которой получена аренда.</p>';
 }
 function viewUtil(){
@@ -273,7 +275,7 @@ function viewUtil(){
     +tri(i,'e1','Электричество T1','e1T','кВт·ч')+tri(i,'e2','Электричество T2','e2T','кВт·ч')+tri(i,'e3','Электричество T3','e3T','кВт·ч')
     +'<div class="res">'+o('u:'+i+':el','Всего электричество','big')+'</div>'
     +'<div class="res">'+o('u:'+i+':sub','Вода + электричество')+o('u:'+i+':total','К оплате квартирантом (с интернетом)','big')+'</div>'
-    +viewStatus(i)+'</div></details>'}).join('')
+    +viewStatus(i)+'<div class="act"><button class="btn" data-done="'+i+'">Готово</button></div></div></details>'}).join('')
     +'<p class="note">Показания «прошлый месяц» и тарифы подставляются из предыдущего месяца, пока вы не введете свои. Отметки об оплате общие с карточкой аренды.</p>';
 }
 var KIND={salary:['Зарплата','Источник / компания','Добавить зарплату'],interest:['Вклады','Счет / вклад','Добавить процент по вкладу'],other:['Прочие доходы','Что за доход','Добавить доход']};
@@ -306,7 +308,7 @@ function calcTotals(extra){
 function viewSum(){
   var C=calcTotals(),L=C.L,cats=C.cats,T=C.T,OK=C.OK,MS=C.MS,raw=C.raw,rows=C.rows,names={rent:'Аренда, чистый доход',salary:'Зарплата',interest:'Вклады',other:'Прочие'};
   function shown(z,c){if(T[z][c]===undefined||!OK[z][c])return '—';return fmt(T[z][c],0)+(MS[z][c]?'*':'')}
-  function card(z,n,cls){return '<div class="card'+(cls?' '+cls:'')+'"><h3>'+n+'</h3>'+L.map(function(c){return '<p><span>'+sym(c)+'</span><span>'+shown(z,c)+'</span></p>'}).join('')+'</div>'}
+  function card(z,n,cls){return '<div class="card'+(cls?' '+cls:'')+'"><h3>'+n+'</h3>'+L.map(function(c){return '<p><span class="v">'+shown(z,c)+'</span><span class="s">'+sym(c)+'</span></p>'}).join('')+'</div>'}
   var rawL=Object.keys(raw).filter(function(c){return raw[c]}).map(function(c){return '<b>'+fmt(raw[c],c)+'</b>'}).join(' + ');
   return '<div class="tot">'+card('all','Всего за '+year,'all')+cats.map(function(k){return card(k,names[k])}).join('')+'</div>'
   +(rawL?'<p class="raw card">Фактический доход после расходов, в исходных валютах: '+rawL+'</p>':'')
@@ -397,7 +399,7 @@ function render(){
   m.innerHTML=!Y?'<div class="empty">Загрузка…</div>':tab==='sum'?viewSum():tab==='rent'?viewRent():tab==='util'?viewUtil():tab==='settings'?viewSettings():tab==='tithe'?viewTithe():viewInc(tab);
   refresh();
 }
-function setSrc(e,on){var d=e.parentNode;if(d&&d.classList)d.classList.toggle('src',on)}
+function setSrc(e,on){var d=e.parentNode;if(d&&d.classList){d.classList.add('cc');d.classList.toggle('src',on)}}
 function refresh(){
   if(!Y)return;
   var TC=document.querySelector('[data-c^="t:"]')?titheCalc():null;
