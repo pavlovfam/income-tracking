@@ -65,11 +65,22 @@ details.card[open]>summary::before{transform:rotate(90deg)}
 label{display:grid;gap:3px;font-size:12px;color:var(--ink2)}
 input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 8px;width:100%;min-width:0}
 input[inputmode=decimal]{font-family:var(--mono)}
+label.wide{grid-column:1/-1}
+.grp{border-left:3px solid var(--accent);padding-left:8px;margin:12px 0;display:grid;gap:8px}
+.grp-h{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;font-size:13px;color:var(--ink2)}.grp-h b{color:var(--ink);font-size:14px}.grp-h .gsum{margin-left:auto;font-family:var(--mono);color:var(--ink)}
+.chips{display:none;flex-wrap:wrap;gap:6px;margin-top:6px}.chips.on{display:flex}
+.chip{font:inherit;font-size:13px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);cursor:pointer}
 textarea.note1{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 8px;width:100%;min-width:0;display:block;resize:none;overflow:hidden;white-space:pre}
 textarea.note1.open{white-space:pre-wrap;overflow-wrap:anywhere}
 input[type=checkbox]{width:18px;height:18px;padding:0;accent-color:var(--accent)}
 .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);align-self:end;padding-bottom:7px}
-.sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);font-weight:600;margin:6px 0 -4px}
+.sec{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);font-weight:700;margin:10px 0 -4px;padding-top:14px;border-top:1px solid var(--line)}
+.body>.sec:first-child{border-top:0;padding-top:0;margin-top:2px}
+.sec.nb{border:0;padding:0;margin:0}
+.incbox{background:color-mix(in srgb,var(--pos) 9%,transparent);border-radius:10px;padding:10px;display:grid;gap:10px;margin-top:6px}
+.g6{grid-template-columns:repeat(6,1fr)!important}.g6>:nth-child(-n+2){grid-column:span 3}.g6>:nth-child(n+3){grid-column:span 2}
+.g3{grid-template-columns:repeat(3,1fr)!important}
+.res .total{grid-column:1/-1}
 .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
 .res div{background:var(--surface2);border-radius:8px;padding:8px 10px}
 .res small{display:block;font-size:11px;color:var(--ink2)}
@@ -111,8 +122,12 @@ tfoot td{font-weight:600;border-bottom:0;background:var(--surface2)}
 td.src{font-weight:700}
 tr:has(td.src) td:not(.src):not(:first-child){color:var(--ink2)}
 .pend{font-size:12px;color:var(--ink2)}.pend.warn{color:var(--neg)}.pend.ok{color:var(--pos)}
-.strow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
-.strow>label,.strow .pd>label{width:150px}.strow .pd{display:contents}.strow.skip .pd{display:none}.strow.paid .sk{display:none}.sn{min-width:150px;font-weight:500;padding-bottom:7px}.sa{font-family:var(--mono);min-width:110px;padding-bottom:7px}
+.strow{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;align-items:end}
+.strow+.strow{border-top:1px solid var(--line);padding-top:12px}
+.strow>.sn{grid-column:1;grid-row:1}.strow>.sa,.strow>label:not(.chk):not(.sk){grid-column:2;grid-row:1}
+.strow .pd>label.chk{grid-column:1;grid-row:2}.strow .pd>label:not(.chk){grid-column:2;grid-row:2/span 2}
+.strow>.sk{grid-column:1;grid-row:3;align-self:start}.strow.skip>.sk{grid-row:2}
+.strow>label,.strow .pd>label{width:auto}.strow .pd{display:contents}.strow.skip .pd{display:none}.strow.paid .sk{display:none}.sn{font-weight:600;padding-bottom:7px}.sa{font-family:var(--mono);padding-bottom:7px;text-align:right}
 .raw{margin:0;padding:10px 14px;font-size:13px;color:var(--ink2)}.raw b{font-family:var(--mono);color:var(--ink);font-weight:500}
 .cl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
 .cl:last-child{border-bottom:0}.cl b{font-family:var(--mono);min-width:48px}
@@ -182,7 +197,7 @@ function normSettings(s){
   var out=DEF.map(function(x){return{code:x.code,sym:x.sym,on:true}});
   if(s&&s.cur){s.cur.forEach(function(x){var f=null;out.forEach(function(o){if(o.code===x.code)f=o});
     if(f){if(x.code==='KZT')f.on=x.on!==false}else if(x.code)out.push({code:x.code,sym:x.sym||x.code,on:x.on!==false})})}
-  return{cur:out,lastBackup:+(s&&s.lastBackup)||0,since:+(s&&s.since)||0};
+  return{cur:out,lastBackup:+(s&&s.lastBackup)||0,since:+(s&&s.since)||0,names:(s&&s.names&&Array.isArray(s.names.interest))?{interest:s.names.interest.slice(0,40)}:{interest:[]}};
 }
 /* Хранение: db (личные данные viewer-а) или localStorage */
 function lsKey(id){return id==='settings'?'income-settings':'income-'+id.slice(1)}
@@ -268,27 +283,29 @@ function viewRent(){
   var L=act();
   return Y.rent.map(function(m,i){var p='rent.'+i+'.';
     return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="pend" data-c="s:'+i+':pend"></span><span class="sum" data-c="r:'+i+':sum"></span></summary><div class="body">'
-    +'<div class="grid">'+f(p+'date','Дата получения','date')+f(p+'amount','Арендная плата','num')+f(p+'cur','Валюта','cur')+rateFields(p,'rent',i)+f(p+'taxPct','Налог, %','num')+'</div>'
+    +'<div class="sec">Поступление</div>'
+    +'<div class="grid">'+f(p+'date','Дата получения','date')+f(p+'amount','Арендная плата','num')+f(p+'cur','Валюта','cur')+rateFields(p,'rent',i)+'</div>'
+    +'<div class="grid g2">'+f(p+'taxPct','Налог, %','num')+o('r:'+i+':tax','Налог, сумма')+'</div>'
     +'<div class="sec">Расходы (в валюте аренды)</div>'
     +'<div class="grid">'+f(p+'jkh','Коммуналка по квитанции','num')+f(p+'water','Вода и КПУ (вычитается)','num','r:'+i+':waterph')+f(p+'elec','Электричество (не вычитается)','num','r:'+i+':elecph')+'</div>'
     +'<div class="grid g2">'+f(p+'maint','Maintenance','num')+f(p+'maintNote','Уточнение','note')+f(p+'other','Прочие расходы','num')+f(p+'otherNote','Уточнение','note')+'</div>'
-    +'<div class="res">'+o('r:'+i+':tax','Налог')+L.map(function(c){return o('r:'+i+':exp:'+c,'Расходы, '+sym(c))}).join('')+'</div>'
-    +'<div class="res">'+L.map(function(c){return o('r:'+i+':inc:'+c,'Доход, '+sym(c),'big')}).join('')+'</div>'
+    +'<div class="res">'+L.map(function(c){return o('r:'+i+':exp:'+c,'Расходы, '+sym(c))}).join('')+'</div>'
+    +'<div class="incbox"><div class="sec nb">Доход</div><div class="res">'+L.map(function(c){return o('r:'+i+':inc:'+c,'Доход, '+sym(c),'big')}).join('')+'</div></div>'
     +viewStatus(i)+'<div class="act"><button class="btn" data-done="'+i+'">Готово</button></div></div></details>'}).join('')
     +'<p class="note">Расходы = налог + коммуналка + maintenance + прочее − вода и КПУ. Электричество и интернет в расходы не входят, их возмещает квартирант. Если «Вода и КПУ» или «Электричество» не заполнены, берется сумма из вкладки «Коммуналка». Жирным выделена валюта, в которой получена аренда.</p>';
 }
 function viewUtil(){
   function tri(i,k,label,tf,unit){var p='util.'+i+'.';
-    return '<div class="sec">'+label+'</div><div class="grid">'+f(p+k+'P','Прошлый месяц ('+unit+')','num','u:'+i+':'+k+'P')+f(p+k+'C','Текущий месяц ('+unit+')','num')+f(p+tf,'Тариф за '+unit,'num','u:'+i+':'+tf)
+    return '<div class="sec">'+label+'</div><div class="grid g6">'+f(p+k+'P','Прошлый месяц ('+unit+')','num','u:'+i+':'+k+'P')+f(p+k+'C','Текущий месяц ('+unit+')','num')+f(p+tf,'Тариф за '+unit,'num','u:'+i+':'+tf)
     +o('u:'+i+':'+k+'U','Расход, '+unit)+o('u:'+i+':'+k+'S','Сумма')+'</div>'}
   return Y.util.map(function(u,i){var p='util.'+i+'.';
     return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="pend" data-c="s:'+i+':pend"></span><span class="sum" data-c="u:'+i+':sum"></span></summary><div class="body">'
     +tri(i,'cw','Вода холодная','cwT','м³')+tri(i,'hw','Вода горячая','hwT','м³')
-    +'<div class="sec">Водоотведение (КПУ)</div><div class="grid">'+f(p+'swT','Тариф за м³','num','u:'+i+':swT')+o('u:'+i+':swU','Расход (хол. + гор.), м³')+o('u:'+i+':swS','Сумма')+'</div>'
+    +'<div class="sec">Водоотведение (КПУ)</div><div class="grid g3">'+f(p+'swT','Тариф за м³','num','u:'+i+':swT')+o('u:'+i+':swU','Расход, м³')+o('u:'+i+':swS','Сумма')+'</div>'
     +'<div class="res">'+o('u:'+i+':water','Всего вода','big')+'</div>'
     +tri(i,'e1','Электричество T1','e1T','кВт·ч')+tri(i,'e2','Электричество T2','e2T','кВт·ч')+tri(i,'e3','Электричество T3','e3T','кВт·ч')
     +'<div class="res">'+o('u:'+i+':el','Всего электричество','big')+'</div>'
-    +'<div class="res">'+o('u:'+i+':sub','Вода + электричество')+o('u:'+i+':total','К оплате квартирантом (с интернетом)','big')+'</div>'
+    +'<div class="sec">Итого</div><div class="res">'+o('u:'+i+':sub','Вода + электричество','total')+o('u:'+i+':total','К оплате квартирантом (с интернетом)','big total')+'</div>'
     +viewStatus(i)+'<div class="act"><button class="btn" data-done="'+i+'">Готово</button></div></div></details>'}).join('')
     +'<p class="note">Показания «прошлый месяц» и тарифы подставляются из предыдущего месяца, пока вы не введете свои. Отметки об оплате общие с карточкой аренды.</p>';
 }
@@ -299,14 +316,42 @@ function periodSel(p,v){
   if(v&&!seen){var q=/^(\d{4})-(\d\d)$/.exec(v);h+='<option value="'+esc(v)+'" selected>'+(q?MON[+q[2]-1]+' '+q[1]:esc(v))+'</option>'}
   return '<label>За какой месяц<select data-p="'+p+'">'+h+'</select></label>'}
 function perLabel(v){var q=/^(\d{4})-(\d\d)$/.exec(v||'');return q?MON[+q[2]-1]+' '+q[1]:''}
-function viewInc(kind){
-  var h='',any=false,K=KIND[kind],L=act();
-  Y.inc.forEach(function(x,i){if(x.kind!==kind)return;any=true;var p='inc.'+i+'.';
-    h+='<details class="card incard" data-inc="'+i+'"'+(openInc[i]?' open':'')+'><summary><span class="in-main"><b class="nm" data-c="m:'+i+'"></b><small class="meta"><span data-c="d:'+i+'"></span> <span class="pend warn" data-c="z:'+i+'"></span></small></span><span class="in-amt" data-c="v:'+i+'"></span></summary>'
-    +'<div class="body"><div class="grid">'+f(p+'date','Дата получения','date')+(kind==='salary'?periodSel(p+'period',x.period||''):'')+f(p+'name',K[1],'note')+f(p+'amount','Сумма','num')+f(p+'cur','Валюта','cur')+rateFields(p,'inc',i)+'</div>'
+function nameField(p,x,kind,K){
+  var h=f(p+'name',K[1],'note');
+  if(kind!=='interest')return h;
+  return h.replace('<label>','<label class="wide">').replace('</textarea></label>','</textarea><div class="chips"></div></label>');
+}
+function allNames(kind){
+  var L=((settings.names&&settings.names[kind])||[]).slice();
+  Y.inc.forEach(function(x){var n=(x.name||'').trim();if(x.kind===kind&&n&&!L.some(function(q){return q.toLowerCase()===n.toLowerCase()}))L.push(n)});
+  return L;
+}
+function rememberName(i){
+  var x=Y.inc[i];if(!x||x.kind!=='interest')return;var n=(x.name||'').trim();if(!n)return;
+  settings.names=settings.names||{interest:[]};
+  var L=settings.names.interest.filter(function(q){return q.toLowerCase()!==n.toLowerCase()});L.unshift(n);settings.names.interest=L.slice(0,40);saveSettings();
+}
+function incCard(x,i,kind,K,L){
+  var p='inc.'+i+'.';
+    return '<details class="card incard" data-inc="'+i+'"'+(openInc[i]?' open':'')+'><summary><span class="in-main"><b class="nm" data-c="m:'+i+'"></b><small class="meta"><span data-c="d:'+i+'"></span> <span class="pend warn" data-c="z:'+i+'"></span></small></span><span class="in-amt" data-c="v:'+i+'"></span></summary>'
+    +'<div class="body"><div class="grid">'+f(p+'date','Дата получения','date')+(kind==='salary'?periodSel(p+'period',x.period||''):'')+nameField(p,x,kind,K)+f(p+'amount','Сумма','num')+f(p+'cur','Валюта','cur')+rateFields(p,'inc',i)+'</div>'
     +'<div class="res">'+L.map(function(c){return o('n:'+i+':'+c,sym(c))}).join('')+'</div>'
-    +'<div class="act"><button class="btn" data-done="'+i+'">Готово</button><button class="del" data-del="'+i+'">Удалить</button></div></div></details>'});
-  if(!any)h+='<div class="card empty">Записей за '+year+' год пока нет.</div>';
+    +'<div class="act"><button class="btn" data-done="'+i+'">Готово</button><button class="del" data-del="'+i+'">Удалить</button></div></div></details>';
+}
+function viewInc(kind){
+  var h='',K=KIND[kind],L=act(),idx=[];
+  Y.inc.forEach(function(x,i){if(x.kind===kind)idx.push(i)});
+  if(kind==='interest'){
+    var groups=[],map={};
+    idx.forEach(function(i){var n=(Y.inc[i].name||'').trim().toLowerCase();
+      if(!n){groups.push([i]);return}
+      if(map[n]===undefined){map[n]=groups.length;groups.push([i])}else groups[map[n]].push(i)});
+    groups.forEach(function(g){
+      var cards=g.map(function(i){return incCard(Y.inc[i],i,kind,K,L)}).join('');
+      if(g.length>1)h+='<div class="grp"><div class="grp-h"><b>'+esc(Y.inc[g[0]].name.trim())+'</b><span>записей: '+g.length+'</span><span class="gsum" data-c="q:'+g[0]+'"></span></div>'+cards+'</div>';
+      else h+=cards});
+  }else idx.forEach(function(i){h+=incCard(Y.inc[i],i,kind,K,L)});
+  if(!idx.length)h+='<div class="card empty">Записей за '+year+' год пока нет.</div>';
   return h+'<button class="add" data-add="'+kind+'">+ '+K[2]+'</button>';
 }
 function calcTotals(extra){
@@ -439,6 +484,9 @@ function refresh(){
       else if(w==='left'){v=isFinite(lv)?((c2!==TC.main?'≈ ':'')+fmt(Math.abs(lv)<0.005?0:Math.abs(lv),c2)):'—'}
       else if(w==='last')v=TC.last?'Последняя оплата: '+fmtDate(TC.last.date)+', '+fmt(num(TC.last.amount),TC.last.cur):'';
       else if(w==='warn')v=TC.warn?('Оплат без суммы «в зачёт»: '+TC.warn+'. Они не учтены в остатке.'):''}
+    else if(t==='q'){var q0=Y.inc[i];if(q0){var qn=(q0.name||'').trim().toLowerCase(),qs=0,qc=null,qm=false;
+      Y.inc.forEach(function(z){if(z.kind==='interest'&&(z.name||'').trim().toLowerCase()===qn){qs+=num(z.amount);if(qc===null)qc=z.cur;else if(qc!==z.cur)qm=true}});
+      v=qm||!qs?'':'итого '+fmt(qs,qc)}}
     else if(t==='m'||t==='d'||t==='z'||t==='v'){var xi=Y.inc[i];
       if(xi){
         if(t==='m')v=xi.name||'Без названия';
@@ -474,15 +522,26 @@ document.addEventListener('change',function(e){
   if(t.id==='tpCur'){var mc=mainCur(),cl=document.getElementById('tpCrL');if(cl)cl.hidden=!(mc&&t.value!==mc)}
 });
 function noteGrow(el){el.style.height='auto';el.style.height=(el.scrollHeight+2)+'px'}
-document.addEventListener('focusin',function(e){var t=e.target;if(t.classList&&t.classList.contains('note1')){t.classList.add('open');noteGrow(t)}});
-document.addEventListener('focusout',function(e){var t=e.target;if(t.classList&&t.classList.contains('note1'))setTimeout(function(){if(document.activeElement!==t){t.classList.remove('open');t.style.height=''}},250)});
-document.addEventListener('input',function(e){var t=e.target;if(t.classList&&t.classList.contains('note1'))noteGrow(t)});
+function fillChips(t){
+  var c=t.parentNode.querySelector('.chips');if(!c||tab!=='interest')return;
+  var m=/^inc\.(\d+)\.name$/.exec(t.getAttribute('data-p')||'');if(!m)return;
+  var q=t.value.trim().toLowerCase(),cur=(Y.inc[+m[1]]||{}).name,
+    L=allNames('interest').filter(function(n){var l=n.toLowerCase();return l!==q&&(!q||l.indexOf(q)>=0)}).slice(0,8);
+  c.innerHTML=L.map(function(n){return '<button type="button" class="chip" data-chip="'+esc(n)+'">'+esc(n)+'</button>'}).join('');
+  c.classList.toggle('on',L.length>0);
+}
+document.addEventListener('pointerdown',function(e){if(e.target.closest&&e.target.closest('.chip'))e.preventDefault()},true);
+document.addEventListener('focusin',function(e){var t=e.target;if(t.classList&&t.classList.contains('note1')){t.classList.add('open');noteGrow(t);fillChips(t)}});
+document.addEventListener('focusout',function(e){var t=e.target;if(t.classList&&t.classList.contains('note1'))setTimeout(function(){if(document.activeElement!==t){t.classList.remove('open');t.style.height='';var cc=t.parentNode.querySelector('.chips');if(cc)cc.classList.remove('on')}},250)});
+document.addEventListener('input',function(e){var t=e.target;if(t.classList&&t.classList.contains('note1')){noteGrow(t);fillChips(t)}});
+document.addEventListener('change',function(e){var t=e.target,m=t.getAttribute&&/^inc\.(\d+)\.name$/.exec(t.getAttribute('data-p')||'');if(m)rememberName(+m[1])});
 document.addEventListener('keydown',function(e){var t=e.target;if(e.key==='Enter'&&t.classList&&t.classList.contains('note1')){e.preventDefault();t.blur()}});
 document.addEventListener('toggle',function(e){var d=e.target;if(d&&d.dataset&&d.dataset.inc!==undefined){if(d.open)openInc[+d.dataset.inc]=true;else delete openInc[+d.dataset.inc]}},true);
 document.addEventListener('click',function(e){
   var b=e.target.closest('button');if(!b)return;
   if(b.dataset.tab){if(tab!==b.dataset.tab)openInc={};tab=b.dataset.tab;render();return}
-  if(b.dataset.done!==undefined){var dd=b.closest('details');if(dd)dd.open=false;return}
+  if(b.dataset.chip!==undefined){var ta0=b.closest('label').querySelector('textarea');ta0.value=b.dataset.chip;ta0.dispatchEvent(new Event('input',{bubbles:true}));ta0.dispatchEvent(new Event('change',{bubbles:true}));ta0.blur();return}
+  if(b.dataset.done!==undefined){var dd=b.closest('details');if(dd)dd.open=false;if(tab==='interest'){var di0=+dd.dataset.inc;delete openInc[di0];rememberName(di0);render()}return}
   if(b.dataset.add){Y.inc.push({kind:b.dataset.add,cur:'RUB',rates:{}});openInc[Y.inc.length-1]=true;saveYear();render();return}
   if(b.dataset.del!==undefined){if(b.dataset.armed){var di=+b.dataset.del;Y.inc.splice(di,1);var no={};Object.keys(openInc).forEach(function(k){k=+k;if(k<di)no[k]=true;else if(k>di)no[k-1]=true});openInc=no;saveYear();render()}else{b.dataset.armed='1';b.textContent='Нажмите еще раз';setTimeout(function(){if(b.isConnected){delete b.dataset.armed;b.textContent='Удалить'}},3000)}return}
   if(b.dataset.delpay!==undefined){if(b.dataset.armed){titheData().pays.splice(+b.dataset.delpay,1);saveYear();render()}else{b.dataset.armed='1';b.textContent='Нажмите еще раз';setTimeout(function(){if(b.isConnected){delete b.dataset.armed;b.textContent='Удалить'}},3000)}return}
