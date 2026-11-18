@@ -236,6 +236,8 @@ function utilCalc(i){
   var t1=line(i,'e1','e1T'),t2=line(i,'e2','e2T'),t3=line(i,'e3','e3T'),el=t1.sum+t2.sum+t3.sum;
   return{cold:cold,hot:hot,sewUse:sewUse,sew:sew,water:water,t1:t1,t2:t2,t3:t3,el:el,sub:water+el,total:water+el+num(tariff(i,'inet'))};
 }
+/* Суммы платежа квартиранта: введённая вручную сумма в аренде главнее расчёта по показаниям */
+function payCalc(i){var u=utilCalc(i),m=Y.rent[i],w=has(m.water)?num(m.water):u.water,e=has(m.elec)?num(m.elec):u.el,n=num(tariff(i,'inet'));return{water:w,el:e,inet:n,sub:w+e,total:w+e+n}}
 /* Аренда: расходы = налог + коммуналка + maintenance + прочее - вода и КПУ. Электричество и интернет не входят. */
 function rentCalc(i){
   var m=Y.rent[i],a=num(m.amount),u=utilCalc(i);
@@ -250,7 +252,7 @@ function pend(i){
   if(year>cy||(year===cy&&i>cm))return{any:false,list:[]};
   var first=-1;for(var k=0;k<12;k++){if(has(Y.rent[k].amount)){first=k;break}}
   if(first<0||i<first)return{any:false,list:[]};
-  var r=Y.util[i],u=utilCalc(i),p=[];
+  var r=Y.util[i],u=payCalc(i),p=[];
   if(r.payPaid)return{any:true,list:[],paid:true};
   if(r.paySkip)return{any:false,list:[]};
   if(now<new Date(year,i,20))return{any:false,list:[]};
@@ -481,10 +483,10 @@ function refresh(){
       e.className='pend'+(q.any?(q.list.length?' warn':' ok'):'')}
     else if(t==='x'){var rr=(k[1]==='rent'?Y.rent[+k[2]]:Y.inc[+k[2]]);rr=rr&&rr.rates||{};var q1=num(rr.RUB),q2=num(rr.KZT),q3=num(rr.KZT_RUB);
       if(q1&&q2&&q3){var im=q2/q1;if(Math.abs(im/q3-1)>0.01)v='Курсы не сходятся: по курсам к доллару выходит '+String(Math.round(im*100)/100).replace('.',',')+' '+sym('KZT')+' за 1 '+sym('RUB')+'. Для расчёта берутся курсы к доллару.'}}
-    else if(t==='p'){var c3=utilCalc(i);v=fmt(n==='w'?c3.water:n==='e'?c3.el:c3.total,Y.rent[i].cur)}
-    else if(t==='u'){var u=utilCalc(i),L={cwU:u.cold.use,cwS:u.cold.sum,hwU:u.hot.use,hwS:u.hot.sum,swU:u.sewUse,swS:u.sew,water:u.water,
-        e1U:u.t1.use,e1S:u.t1.sum,e2U:u.t2.use,e2S:u.t2.sum,e3U:u.t3.use,e3S:u.t3.sum,el:u.el,sub:u.sub,total:u.total};
-      v=n==='sum'?(RD.some(function(k){return has(ut(i,k))})&&u.total?(Y.util[i].payPaid?'':'к оплате ')+fmt(u.total):'нет данных'):/U$/.test(n)?String(Math.round(L[n]*1000)/1000).replace('.',','):fmt(L[n])}
+    else if(t==='p'){var c3=payCalc(i);v=fmt(n==='w'?c3.water:n==='e'?c3.el:c3.total,Y.rent[i].cur)}
+    else if(t==='u'){var u=utilCalc(i),pc=payCalc(i),L={cwU:u.cold.use,cwS:u.cold.sum,hwU:u.hot.use,hwS:u.hot.sum,swU:u.sewUse,swS:u.sew,water:u.water,
+        e1U:u.t1.use,e1S:u.t1.sum,e2U:u.t2.use,e2S:u.t2.sum,e3U:u.t3.use,e3S:u.t3.sum,el:u.el,sub:pc.sub,total:pc.total};
+      v=n==='sum'?((RD.some(function(k){return has(ut(i,k))})||has(Y.rent[i].water)||has(Y.rent[i].elec))&&pc.total?(Y.util[i].payPaid?'':'к оплате ')+fmt(pc.total):'нет данных'):/U$/.test(n)?String(Math.round(L[n]*1000)/1000).replace('.',','):fmt(L[n])}
     else if(t==='t'&&TC){var w=k[1],c2=k[2],lv=TC.leftC[c2];
       if(w==='due')v=fmt(TC.due[c2],c2)+(TC.part[c2]?'*':'');
       else if(w==='paid')v=fmt(TC.paid,c2);
@@ -596,7 +598,7 @@ function buildWb(years){
     Y.inc.forEach(function(x){var c=conv(x.amount,x.cur,x.rates);I.push([yn,KN[x.kind]||x.kind,x.date||'',x.name||'',num(x.amount),x.cur].concat(NU.map(function(k){return n2((x.rates||{})[k])}),L.map(function(k){return nv(c[k])})))});
     Y.util.forEach(function(r,i){var u=utilCalc(i);if(!hasData(i))return;
       U.push([yn,MON[i],n2(prevR(i,'cw')),n2(r.cwC),n2(tariff(i,'cwT')),u.cold.sum,n2(prevR(i,'hw')),n2(r.hwC),n2(tariff(i,'hwT')),u.hot.sum,u.sewUse,n2(tariff(i,'swT')),u.sew,u.water,
-        n2(prevR(i,'e1')),n2(r.e1C),n2(tariff(i,'e1T')),u.t1.sum,n2(prevR(i,'e2')),n2(r.e2C),n2(tariff(i,'e2T')),u.t2.sum,n2(prevR(i,'e3')),n2(r.e3C),n2(tariff(i,'e3T')),u.t3.sum,u.el,n2(tariff(i,'inet')),u.total])});
+        n2(prevR(i,'e1')),n2(r.e1C),n2(tariff(i,'e1T')),u.t1.sum,n2(prevR(i,'e2')),n2(r.e2C),n2(tariff(i,'e2T')),u.t2.sum,n2(prevR(i,'e3')),n2(r.e3C),n2(tariff(i,'e3T')),u.t3.sum,u.el,n2(tariff(i,'inet')),payCalc(i).total])});
   });
   Y=keep;
   [['Аренда',A],['Доходы',I],['Коммуналка',U],['Десятина',D],['Оплаты десятины',P]].forEach(function(s){var ws=XLSX.utils.aoa_to_sheet(s[1]);ws['!cols']=s[1][0].map(function(h){return{wch:Math.max(12,String(h).length+2)}});XLSX.utils.book_append_sheet(wb,ws,s[0])});
