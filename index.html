@@ -458,8 +458,10 @@ function lastSat9(){var n=new Date(),d=new Date(n);d.setHours(9,0,0,0);d.setDate
 function lbDate(){var d=new Date(settings.lastBackup);return ('0'+d.getDate()).slice(-2)+'.'+('0'+(d.getMonth()+1)).slice(-2)+'.'+d.getFullYear()}
 function backupDue(){var b=settings.lastBackup||settings.since;return !!b&&b<lastSat9()}
 function renderTabs(){
-  document.getElementById('tabs').innerHTML=TABS.map(function(t){return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(t[0]===tab)+'">'+t[1]+(t[0]==='settings'&&backupDue()?'<i class="dot" title="Пора сделать резервную копию"></i>':'')+'</button>'}).join('');
+  document.getElementById('tabs').innerHTML=TABS.map(function(t){return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(t[0]===tab)+'">'+t[1]+(t[0]==='settings'&&backupDue()?'<i class="dot" title="Пора сделать резервную копию"></i>':'')+((t[0]==='rent'||t[0]==='util')&&rentAlert()?'<i class="dot" title="Есть напоминания по аренде и коммуналке"></i>':'')+'</button>'}).join('');
 }
+function rentAlert(){if(!Y)return false;for(var i=0;i<12;i++){if(pend(i).list.length)return true}return false}
+function updDots(){var on=rentAlert();['rent','util'].forEach(function(k){var b=document.querySelector('#tabs [data-tab="'+k+'"]');if(!b)return;var d=b.querySelector('.dot');if(on&&!d){var e=document.createElement('i');e.className='dot';e.title='Есть напоминания по аренде и коммуналке';b.appendChild(e)}else if(!on&&d)d.remove()})}
 function markBackup(){settings.lastBackup=Date.now();saveSettings();renderTabs();if(tab==='settings')render()}
 function render(){
   yearSel();
@@ -471,6 +473,7 @@ function render(){
 function setSrc(e,on){var d=e.parentNode;if(d&&d.classList){d.classList.add('cc');d.classList.toggle('src',on)}}
 function refresh(){
   if(!Y)return;
+  updDots();
   var TC=document.querySelector('[data-c^="t:"]')?titheCalc():null;
   document.querySelectorAll('[data-c]').forEach(function(e){
     var k=e.getAttribute('data-c').split(':'),t=k[0],i=+k[1],n=k[2],v='';
