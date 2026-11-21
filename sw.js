@@ -1,6 +1,6 @@
 /* Service worker: хранит копию приложения на телефоне, чтобы оно открывалось без интернета.
    Данные пользователя здесь не хранятся, они лежат в localStorage страницы. */
-var CACHE = 'uchet-dohodov-v26';
+var CACHE = 'uchet-dohodov-v27';
 var CORE = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 var EXTRA = [
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',

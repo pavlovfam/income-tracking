@@ -255,10 +255,10 @@ function pend(i){
   var r=Y.util[i],u=payCalc(i),p=[];
   if(r.payPaid)return{any:true,list:[],paid:true};
   if(r.paySkip)return{any:false,list:[]};
-  if(now<new Date(year,i,20))return{any:false,list:[]};
+  if(now<new Date(year,i,22))return{any:false,list:[]};
   if(!(u.water>0))p.push('нет показаний воды');
   if(!(u.el>0))p.push('нет показаний электричества');
-  if(now>=new Date(year,i,26)){if(!(num(tariff(i,'inet'))>0))p.push('нет суммы интернета');if(!r.payTold)p.push('сообщить сумму');if(!r.inetMine)p.push('оплатить интернет')}
+  if(now>=new Date(year,i,27)){if(!(num(tariff(i,'inet'))>0))p.push('нет суммы интернета');if(!r.payTold)p.push('сообщить сумму');if(!r.inetMine)p.push('оплатить интернет')}
   return{any:true,list:p}
 }
 window.__t={conv:conv,rentCalc:rentCalc,utilCalc:utilCalc,pend:pend,setY:function(y,pu){Y=y;PU=pu||[]},settings:settings};
