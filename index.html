@@ -124,8 +124,8 @@ tr:has(td.src) td:not(.src):not(:first-child){color:var(--ink2)}
 .strow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 12px;align-items:end}.strow>*{min-width:0}.strow input,.strow select{min-width:0;max-width:100%;width:100%;box-sizing:border-box}.strow input[type=checkbox]{width:18px}input[type=date]{min-width:0;max-width:100%}
 .strow+.strow{border-top:1px solid var(--line);padding-top:12px}
 .strow>.sn{grid-column:1;grid-row:1}.strow>.sa,.strow>label:not(.chk):not(.sk){grid-column:2;grid-row:1}
-.strow .pd>label.chk{grid-column:1;grid-row:2}.strow .pd>label:not(.chk){grid-column:2;grid-row:2/span 2}
-.strow>.sk{grid-column:1;grid-row:3;align-self:start}.strow.skip>.sk{grid-row:2}
+.strow>.inm,.strow>.told{grid-column:1/-1;grid-row:2;align-self:start}.strow .pd>label.chk{grid-column:1;grid-row:3}.strow .pd>label:not(.chk){grid-column:2;grid-row:3/span 2}
+.strow>.sk{grid-column:1;grid-row:4;align-self:start}.strow.skip>.sk{grid-row:3}
 .strow>label,.strow .pd>label{width:auto}.strow .pd{display:contents}.strow.skip .pd{display:none}.strow.paid .sk{display:none}.sn{font-weight:600;padding-bottom:7px}.sa.big{font-weight:700}.mine{gap:8px 12px;padding:4px 0}.mine .chk{padding-bottom:0;align-self:start}.sa{font-family:var(--mono);padding-bottom:7px;text-align:right}
 .raw{margin:0;padding:10px 14px;font-size:13px;color:var(--ink2)}.raw b{font-family:var(--mono);color:var(--ink);font-weight:500}
 .cl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
@@ -285,9 +285,8 @@ function viewStatus(i){
   return '<div class="sec">Оплата квартирантом, 1 '+ng+'</div>'
     +line('Вода и КПУ (за '+mn+')','<span class="sa" data-c="p:'+i+':w"></span>')
     +line('Электричество (за '+mn+')','<span class="sa" data-c="p:'+i+':e"></span>')
-    +line('Интернет (на '+nx+', вперёд)',f(p+'inet','Сумма (интернет)','num','u:'+i+':inet'))
-    +'<div class="grid g2 mine">'+f(p+'payTold','Сумму сообщил','check')+f(p+'inetMine','Интернет оплатил я','check')+'</div>'
-    +'<div class="strow'+(r.paySkip?' skip':'')+(r.payPaid?' paid':'')+'"><span class="sn">К оплате квартирантом</span><span class="sa big" data-c="p:'+i+':all"></span><span class="pd">'+f(p+'payPaid','Квартирант оплатил','check')+f(p+'payDate','Дата оплаты','date')+'</span>'+f(p+'paySkip','Не нужно','check').replace('class="chk"','class="chk sk"')+'</div>';
+    +line('Интернет (на '+nx+', вперёд)',f(p+'inet','Сумма (интернет)','num','u:'+i+':inet')+f(p+'inetMine','Оплачен мной','check').replace('class="chk"','class="chk inm"'))
+    +'<div class="strow'+(r.paySkip?' skip':'')+(r.payPaid?' paid':'')+'"><span class="sn">К оплате квартирантом</span><span class="sa big" data-c="p:'+i+':all"></span>'+f(p+'payTold','Сообщил сумму квартиранту','check').replace('class="chk"','class="chk told"')+'<span class="pd">'+f(p+'payPaid','Квартирант оплатил','check')+f(p+'payDate','Дата оплаты','date')+'</span>'+f(p+'paySkip','Не нужно','check').replace('class="chk"','class="chk sk"')+'</div>';
 }
 function viewRent(){
   var L=act();
@@ -482,7 +481,7 @@ function refresh(){
       else if(n==='exp'){v=fmt(c.expC[k[3]],k[3]);setSrc(e,k[3]===cu)}
       else if(n==='inc'){v=fmt(c.netC[k[3]],k[3]);setSrc(e,k[3]===cu);e.classList.toggle('neg',c.netC[k[3]]<0)}
       else if(n==='sum')v=c.a?'нетто '+fmt(c.net,cu):'нет данных'}
-    else if(t==='s'){var q=pend(i);v=!q.any?'':q.list.length?q.list.join(' · '):'оплачено';
+    else if(t==='s'){var q=pend(i);v=!q.any?'':q.list.length?q.list.join(' · '):(q.paid?'оплачено':'');
       e.className='pend'+(q.any?(q.list.length?' warn':' ok'):'')}
     else if(t==='x'){var rr=(k[1]==='rent'?Y.rent[+k[2]]:Y.inc[+k[2]]);rr=rr&&rr.rates||{};var q1=num(rr.RUB),q2=num(rr.KZT),q3=num(rr.KZT_RUB);
       if(q1&&q2&&q3){var im=q2/q1;if(Math.abs(im/q3-1)>0.01)v='Курсы не сходятся: по курсам к доллару выходит '+String(Math.round(im*100)/100).replace('.',',')+' '+sym('KZT')+' за 1 '+sym('RUB')+'. Для расчёта берутся курсы к доллару.'}}
