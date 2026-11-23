@@ -126,7 +126,7 @@ tr:has(td.src) td:not(.src):not(:first-child){color:var(--ink2)}
 .strow>.sn{grid-column:1;grid-row:1}.strow>.sa,.strow>label:not(.chk):not(.sk){grid-column:2;grid-row:1}
 .strow>.inm,.strow>.told{grid-column:1/-1;grid-row:2;align-self:start}.strow .pd>label.chk{grid-column:1;grid-row:3}.strow .pd>label:not(.chk){grid-column:2;grid-row:3/span 2}
 .strow>.sk{grid-column:1;grid-row:4;align-self:start}.strow.skip>.sk{grid-row:3}
-.strow>label,.strow .pd>label{width:auto}.strow .pd{display:contents}.strow.skip .pd{display:none}.strow.paid .sk{display:none}.sn{font-weight:600;padding-bottom:7px}.sa.big{font-weight:700}.mine{gap:8px 12px;padding:4px 0}.mine .chk{padding-bottom:0;align-self:start}.sa{font-family:var(--mono);padding-bottom:7px;text-align:right}
+.strow>label,.strow .pd>label{width:auto}.strow .pd{display:contents}.strow.skip .pd{display:none}.strow.paid .sk{display:none}.sn{font-weight:600;padding-bottom:7px}.sa.big{font-weight:700}.manual{align-items:end}.manual input{font-weight:700}.grid>div.autohint{background:none;border:0;box-shadow:none;color:var(--ink2);font-size:13px;padding:0 0 12px;align-self:end}.grid>div.autohint output{font-family:var(--sans);font-size:13px;font-weight:400}.mine{gap:8px 12px;padding:4px 0}.mine .chk{padding-bottom:0;align-self:start}.sa{font-family:var(--mono);padding-bottom:7px;text-align:right}
 .raw{margin:0;padding:10px 14px;font-size:13px;color:var(--ink2)}.raw b{font-family:var(--mono);color:var(--ink);font-weight:500}
 .cl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
 .cl:last-child{border-bottom:0}.cl b{font-family:var(--mono);min-width:48px}
@@ -190,7 +190,8 @@ function commaNums(o){
 function normY(d){
   var b=blankYear();d=d||{};
   if(d.rent&&d.rent.length===12)b.rent=d.rent;if(d.util&&d.util.length===12)b.util=d.util;b.inc=d.inc||[];b.tithe=(d.tithe&&d.tithe.pays)?d.tithe:{main:'',pays:[]};
-  b.rent.forEach(function(m,i){mig(m);if(has(m.inet)&&!has(b.util[i].inet))b.util[i].inet=m.inet;delete m.inet});
+  b.rent.forEach(function(m,i){mig(m);if(has(m.inet)&&!has(b.util[i].inet))b.util[i].inet=m.inet;delete m.inet;
+    if(has(m.water)&&!has(b.util[i].wMan))b.util[i].wMan=m.water;delete m.water;if(has(m.elec)&&!has(b.util[i].eMan))b.util[i].eMan=m.elec;delete m.elec});
   b.util.forEach(function(u){
     if(!u.payFix){if(u.payPaid===true&&u.iPaid&&!u.wPaid&&!u.ePaid&&(u.payDate||'')===(u.iDate||'')){u.payPaid=false;u.payDate=''}u.payFix=1}
     if(u.payPaid===undefined&&u.paySkip===undefined){if(u.wPaid||u.ePaid){u.payPaid=true;u.payDate=u.wDate||u.eDate||''}else if(u.wSkip&&u.eSkip&&u.iSkip)u.paySkip=true}});
@@ -232,18 +233,18 @@ function hasData(i){return has(Y.rent[i].amount)||has(ut(i,'inet'))||RD.some(fun
 function line(i,k,tf){var p=num(prevR(i,k)),c=num(ut(i,k+'C')),use=has(ut(i,k+'C'))?c-p:0;return{use:use,sum:use*num(tariff(i,tf))}}
 function utilCalc(i){
   var cold=line(i,'cw','cwT'),hot=line(i,'hw','hwT');
-  var sewUse=cold.use+hot.use,sew=sewUse*num(tariff(i,'swT')),water=cold.sum+hot.sum+sew;
-  var t1=line(i,'e1','e1T'),t2=line(i,'e2','e2T'),t3=line(i,'e3','e3T'),el=t1.sum+t2.sum+t3.sum;
-  return{cold:cold,hot:hot,sewUse:sewUse,sew:sew,water:water,t1:t1,t2:t2,t3:t3,el:el,sub:water+el,total:water+el+num(tariff(i,'inet'))};
+  var sewUse=cold.use+hot.use,sew=sewUse*num(tariff(i,'swT')),waterA=cold.sum+hot.sum+sew,water=has(ut(i,'wMan'))?num(ut(i,'wMan')):waterA;
+  var t1=line(i,'e1','e1T'),t2=line(i,'e2','e2T'),t3=line(i,'e3','e3T'),elA=t1.sum+t2.sum+t3.sum,el=has(ut(i,'eMan'))?num(ut(i,'eMan')):elA;
+  return{cold:cold,hot:hot,sewUse:sewUse,sew:sew,water:water,waterA:waterA,t1:t1,t2:t2,t3:t3,el:el,elA:elA,sub:water+el,total:water+el+num(tariff(i,'inet'))};
 }
-/* Суммы платежа квартиранта: введённая вручную сумма в аренде главнее расчёта по показаниям */
-function payCalc(i){var u=utilCalc(i),m=Y.rent[i],w=has(m.water)?num(m.water):u.water,e=has(m.elec)?num(m.elec):u.el,n=num(tariff(i,'inet'));return{water:w,el:e,inet:n,sub:w+e,total:w+e+n}}
+/* Суммы платежа квартиранта: вода и электричество (вручную из «Коммуналки» или по показаниям) + интернет на следующий месяц */
+function payCalc(i){var u=utilCalc(i);return{water:u.water,el:u.el,inet:num(tariff(i,'inet')),sub:u.sub,total:u.total}}
 /* Аренда: расходы = налог + коммуналка + maintenance + прочее - вода и КПУ. Электричество и интернет не входят. */
 function rentCalc(i){
   var m=Y.rent[i],a=num(m.amount),u=utilCalc(i);
-  var tax=a*num(m.taxPct)/100,water=has(m.water)?num(m.water):u.water;
+  var tax=a*num(m.taxPct)/100,water=u.water;
   var exp=tax+num(m.jkh)+num(m.maint)+num(m.other)-water,net=a-exp;
-  return{a:a,tax:tax,water:water,elec:has(m.elec)?num(m.elec):u.el,exp:exp,net:net,
+  return{a:a,tax:tax,water:water,elec:u.el,exp:exp,net:net,
     expC:conv(exp,m.cur,m.rates),netC:conv(net,m.cur,m.rates)};
 }
 /* Статусы оплаты квартирантом (общие для аренды и коммуналки) */
@@ -291,16 +292,16 @@ function viewStatus(i){
 function viewRent(){
   var L=act();
   return Y.rent.map(function(m,i){var p='rent.'+i+'.';
-    return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="pend" data-c="s:'+i+':pend"></span><span class="sum" data-c="r:'+i+':sum"></span></summary><div class="body">'
+    return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="sum" data-c="r:'+i+':sum"></span></summary><div class="body">'
     +'<div class="sec">Поступление</div>'
     +'<div class="grid">'+f(p+'date','Дата получения','date')+f(p+'amount','Арендная плата','num')+f(p+'cur','Валюта','cur')+rateFields(p,'rent',i)+'</div>'
     +'<div class="grid g2">'+f(p+'taxPct','Налог, %','num')+o('r:'+i+':tax','Налог, сумма')+'</div>'
     +'<div class="sec">Расходы (в валюте аренды)</div>'
-    +'<div class="grid">'+f(p+'jkh','Коммуналка по квитанции','num')+f(p+'water','Вода и КПУ (вычитается)','num','r:'+i+':waterph')+f(p+'elec','Электричество (не вычитается)','num','r:'+i+':elecph')+'</div>'
+    +'<div class="grid g2">'+f(p+'jkh','Коммуналка по квитанции','num')+o('r:'+i+':waterv','Вода и КПУ (вычитается)')+'</div>'
     +'<div class="grid g2">'+f(p+'maint','Maintenance','num')+f(p+'maintNote','Уточнение','note')+f(p+'other','Прочие расходы','num')+f(p+'otherNote','Уточнение','note')+'</div>'
     +'<div class="res">'+L.map(function(c){return o('r:'+i+':exp:'+c,'Расходы, '+sym(c))}).join('')+'</div>'
     +'<div class="incbox"><div class="sec nb">Доход</div><div class="res">'+L.map(function(c){return o('r:'+i+':inc:'+c,'Доход, '+sym(c),'big')}).join('')+'</div></div>'
-    +viewStatus(i)+'<div class="act"><button class="btn" data-done="'+i+'">Готово</button></div></div></details>'}).join('')
+    +'<div class="act"><button class="btn" data-done="'+i+'">Готово</button></div></div></details>'}).join('')
     +'<p class="note">Расходы = налог + коммуналка + maintenance + прочее − вода и КПУ. Электричество и интернет в расходы не входят, их возмещает квартирант. Если «Вода и КПУ» или «Электричество» не заполнены, берется сумма из вкладки «Коммуналка». Жирным выделена валюта, в которой получена аренда.</p>';
 }
 function viewUtil(){
@@ -311,12 +312,12 @@ function viewUtil(){
     return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="pend" data-c="s:'+i+':pend"></span><span class="sum" data-c="u:'+i+':sum"></span></summary><div class="body">'
     +tri(i,'cw','Вода холодная','cwT','м³')+tri(i,'hw','Вода горячая','hwT','м³')
     +'<div class="sec">Водоотведение (КПУ)</div><div class="grid g3">'+f(p+'swT','Тариф за м³','num','u:'+i+':swT')+o('u:'+i+':swU','Расход, м³')+o('u:'+i+':swS','Сумма')+'</div>'
-    +'<div class="res">'+o('u:'+i+':water','Всего вода','big')+'</div>'
+    +'<div class="grid g2 manual">'+f(p+'wMan','Всего вода и КПУ','num','a:'+i+':w')+'<div class="autohint"><output data-c="u:'+i+':wHint"></output></div></div>'
     +tri(i,'e1','Электричество T1','e1T','кВт·ч')+tri(i,'e2','Электричество T2','e2T','кВт·ч')+tri(i,'e3','Электричество T3','e3T','кВт·ч')
-    +'<div class="res">'+o('u:'+i+':el','Всего электричество','big')+'</div>'
+    +'<div class="grid g2 manual">'+f(p+'eMan','Всего электричество','num','a:'+i+':e')+'<div class="autohint"><output data-c="u:'+i+':eHint"></output></div></div>'
     +'<div class="sec">Итого</div><div class="res">'+o('u:'+i+':sub','Вода + электричество (за '+MON[i].toLowerCase()+')','total')+o('u:'+i+':total','К оплате 1 '+MOG[(i+1)%12]+' (с интернетом на '+MON[(i+1)%12].toLowerCase()+')','big total')+'</div>'
     +viewStatus(i)+'<div class="act"><button class="btn" data-done="'+i+'">Готово</button></div></div></details>'}).join('')
-    +'<p class="note">Показания «прошлый месяц» и тарифы подставляются из предыдущего месяца, пока вы не введете свои. Отметки об оплате общие с карточкой аренды.</p>';
+    +'<p class="note">Показания «прошлый месяц» и тарифы подставляются из предыдущего месяца, пока вы не введете свои. Если сумму воды или электричества ввести вручную, она главнее расчёта по показаниям. Отметки об оплате квартирантом здесь, в «Коммуналке»</p>';
 }
 var KIND={salary:['Зарплата','Источник / компания','Добавить зарплату'],interest:['Вклады','Счет / вклад','Добавить процент по вкладу'],other:['Прочие доходы','Что за доход','Добавить доход']};
 function periodSel(p,v){
@@ -457,10 +458,10 @@ function lastSat9(){var n=new Date(),d=new Date(n);d.setHours(9,0,0,0);d.setDate
 function lbDate(){var d=new Date(settings.lastBackup);return ('0'+d.getDate()).slice(-2)+'.'+('0'+(d.getMonth()+1)).slice(-2)+'.'+d.getFullYear()}
 function backupDue(){var b=settings.lastBackup||settings.since;return !!b&&b<lastSat9()}
 function renderTabs(){
-  document.getElementById('tabs').innerHTML=TABS.map(function(t){return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(t[0]===tab)+'">'+t[1]+(t[0]==='settings'&&backupDue()?'<i class="dot" title="Пора сделать резервную копию"></i>':'')+((t[0]==='rent'||t[0]==='util')&&rentAlert()?'<i class="dot" title="Есть напоминания по аренде и коммуналке"></i>':'')+'</button>'}).join('');
+  document.getElementById('tabs').innerHTML=TABS.map(function(t){return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(t[0]===tab)+'">'+t[1]+(t[0]==='settings'&&backupDue()?'<i class="dot" title="Пора сделать резервную копию"></i>':'')+(t[0]==='util'&&rentAlert()?'<i class="dot" title="Есть напоминания по аренде и коммуналке"></i>':'')+'</button>'}).join('');
 }
 function rentAlert(){if(!Y)return false;for(var i=0;i<12;i++){if(pend(i).list.length)return true}return false}
-function updDots(){var on=rentAlert();['rent','util'].forEach(function(k){var b=document.querySelector('#tabs [data-tab="'+k+'"]');if(!b)return;var d=b.querySelector('.dot');if(on&&!d){var e=document.createElement('i');e.className='dot';e.title='Есть напоминания по аренде и коммуналке';b.appendChild(e)}else if(!on&&d)d.remove()})}
+function updDots(){var on=rentAlert();['util'].forEach(function(k){var b=document.querySelector('#tabs [data-tab="'+k+'"]');if(!b)return;var d=b.querySelector('.dot');if(on&&!d){var e=document.createElement('i');e.className='dot';e.title='Есть напоминания по аренде и коммуналке';b.appendChild(e)}else if(!on&&d)d.remove()})}
 function markBackup(){settings.lastBackup=Date.now();saveSettings();renderTabs();if(tab==='settings')render()}
 function render(){
   yearSel();
@@ -478,6 +479,7 @@ function refresh(){
     var k=e.getAttribute('data-c').split(':'),t=k[0],i=+k[1],n=k[2],v='';
     if(t==='r'){var m=Y.rent[i],c=rentCalc(i),cu=m.cur;
       if(n==='tax')v=fmt(c.tax,cu);
+      else if(n==='waterv')v=fmt(c.water,cu);
       else if(n==='exp'){v=fmt(c.expC[k[3]],k[3]);setSrc(e,k[3]===cu)}
       else if(n==='inc'){v=fmt(c.netC[k[3]],k[3]);setSrc(e,k[3]===cu);e.classList.toggle('neg',c.netC[k[3]]<0)}
       else if(n==='sum')v=c.a?'нетто '+fmt(c.net,cu):'нет данных'}
@@ -488,7 +490,7 @@ function refresh(){
     else if(t==='p'){var c3=payCalc(i);v=fmt(n==='w'?c3.water:n==='e'?c3.el:c3.total,Y.rent[i].cur)}
     else if(t==='u'){var u=utilCalc(i),pc=payCalc(i),L={cwU:u.cold.use,cwS:u.cold.sum,hwU:u.hot.use,hwS:u.hot.sum,swU:u.sewUse,swS:u.sew,water:u.water,
         e1U:u.t1.use,e1S:u.t1.sum,e2U:u.t2.use,e2S:u.t2.sum,e3U:u.t3.use,e3S:u.t3.sum,el:u.el,sub:pc.sub,total:pc.total};
-      v=n==='sum'?((RD.some(function(k){return has(ut(i,k))})||has(Y.rent[i].water)||has(Y.rent[i].elec))&&pc.total?(Y.util[i].payPaid?'':'к оплате ')+fmt(pc.total):'нет данных'):/U$/.test(n)?String(Math.round(L[n]*1000)/1000).replace('.',','):fmt(L[n])}
+      v=n==='wHint'?(has(ut(i,'wMan'))?'по показаниям: '+fmt(u.waterA):''):n==='eHint'?(has(ut(i,'eMan'))?'по показаниям: '+fmt(u.elA):''):n==='sum'?((RD.some(function(k){return has(ut(i,k))})||has(ut(i,'wMan'))||has(ut(i,'eMan')))&&pc.total?(Y.util[i].payPaid?'':'к оплате ')+fmt(pc.total):'нет данных'):/U$/.test(n)?String(Math.round(L[n]*1000)/1000).replace('.',','):fmt(L[n])}
     else if(t==='t'&&TC){var w=k[1],c2=k[2],lv=TC.leftC[c2];
       if(w==='due')v=fmt(TC.due[c2],c2)+(TC.part[c2]?'*':'');
       else if(w==='paid')v=fmt(TC.paid,c2);
@@ -509,7 +511,7 @@ function refresh(){
     e.textContent=v});
   document.querySelectorAll('[data-ph]').forEach(function(e){
     var k=e.getAttribute('data-ph').split(':'),v='';
-    if(k[0]==='r'){var i=+k[1],u=utilCalc(i);v=k[2]==='waterph'?Math.round(u.water*100)/100:Math.round(u.el*100)/100}
+    if(k[0]==='a'){var ua=utilCalc(+k[1]);v=(k[2]==='w'?ua.waterA:ua.elA).toFixed(2).replace('.',',')}
     else{var j=+k[1],n=k[2];v=/P$/.test(n)?prevR(j,n.replace(/P$/,'')):tariff(j,n)}
     e.placeholder=v===''?'':String(v)});
 }
