@@ -189,7 +189,7 @@ function commaNums(o){
 }
 function normY(d){
   var b=blankYear();d=d||{};
-  if(d.rent&&d.rent.length===12)b.rent=d.rent;if(d.util&&d.util.length===12)b.util=d.util;b.inc=d.inc||[];b.tithe=(d.tithe&&d.tithe.pays)?d.tithe:{main:'',pays:[]};
+  if(d.rent&&d.rent.length===12)b.rent=d.rent;if(d.util&&d.util.length===12)b.util=d.util;b.inc=d.inc||[];b.paidMig=d.paidMig||0;b.tithe=(d.tithe&&d.tithe.pays)?d.tithe:{main:'',pays:[]};
   b.rent.forEach(function(m,i){mig(m);if(has(m.inet)&&!has(b.util[i].inet))b.util[i].inet=m.inet;delete m.inet;
     if(has(m.water)&&!has(b.util[i].wMan))b.util[i].wMan=m.water;delete m.water;if(has(m.elec)&&!has(b.util[i].eMan))b.util[i].eMan=m.elec;delete m.elec});
   b.util.forEach(function(u){
@@ -222,7 +222,11 @@ function saveSoon(id,getter){
 }
 function saveYear(){var y=year,d=Y;saveSoon('y'+y,function(){return d})}
 function saveSettings(){saveSoon('settings',function(){return settings})}
-function loadYear(y,cb){readDoc('y'+y,function(d){Y=normY(d);readDoc('y'+(y-1),function(p){PU=normY(p).util;cb()})})}
+function markOldPaid(y){var n=new Date(),cy=n.getFullYear(),cm=n.getMonth(),k=y<cy?12:(y===cy?cm:0);
+  for(var i=0;i<k;i++){if(Y.rent[i].jkhPaid===undefined)Y.rent[i].jkhPaid=true;if(Y.util[i].elPaid===undefined)Y.util[i].elPaid=true}}
+function loadYear(y,cb){readDoc('y'+y,function(d){Y=normY(d);
+    if(!Y.paidMig){if(d){markOldPaid(y);var YY=Y;YY.paidMig=1;saveSoon('y'+y,function(){return YY})}else Y.paidMig=1}
+    readDoc('y'+(y-1),function(p){PU=normY(p).util;cb()})})}
 
 /* Коммуналка */
 function ut(i,f){var u=Y.util[i];return u&&has(u[f])?u[f]:''}
@@ -253,16 +257,17 @@ function pend(i){
   if(year>cy||(year===cy&&i>cm))return{any:false,list:[]};
   var first=-1;for(var k=0;k<12;k++){if(has(Y.rent[k].amount)){first=k;break}}
   if(first<0||i<first)return{any:false,list:[]};
-  var r=Y.util[i],u=payCalc(i),p=[];
-  if(r.payPaid)return{any:true,list:[],paid:true};
-  if(r.paySkip)return{any:false,list:[]};
-  if(now<new Date(year,i,22))return{any:false,list:[]};
+  var r=Y.util[i],u=payCalc(i),p=[],ep=u.el>0&&!r.elPaid?['электричество не оплачено']:[];
+  if(r.payPaid)return{any:true,list:ep,paid:true};
+  if(r.paySkip)return{any:ep.length>0,list:ep};
+  if(now<new Date(year,i,22))return{any:ep.length>0,list:ep};
   if(!(u.water>0))p.push('нет показаний воды');
   if(!(u.el>0))p.push('нет показаний электричества');
   if(now>=new Date(year,i+1,-3)){if(!(num(tariff(i,'inet'))>0))p.push('нет суммы интернета');if(!r.payTold)p.push('сообщить сумму');if(!r.inetMine)p.push('оплатить интернет')}
-  return{any:true,list:p}
+  return{any:true,list:ep.concat(p)}
 }
-window.__t={conv:conv,rentCalc:rentCalc,utilCalc:utilCalc,pend:pend,setY:function(y,pu){Y=y;PU=pu||[]},settings:settings};
+function pendRent(i){var m=Y.rent[i],l=num(m.jkh)>0&&!m.jkhPaid?['коммуналка не оплачена']:[];return{any:l.length>0,list:l}}
+window.__t={conv:conv,rentCalc:rentCalc,utilCalc:utilCalc,pend:pend,pendRent:pendRent,setY:function(y,pu){Y=y;PU=pu||[]},settings:settings};
 function getP(p){var s=p.split('.'),o=Y;for(var i=0;i<s.length;i++){if(o==null)return '';o=o[s[i]]}return o==null?'':o}
 function setP(p,v){var s=p.split('.'),o=Y;for(var i=0;i<s.length-1;i++){if(o[s[i]]==null)o[s[i]]={};o=o[s[i]]}o[s[s.length-1]]=v}
 function f(p,label,type,ph){
@@ -292,12 +297,13 @@ function viewStatus(i){
 function viewRent(){
   var L=act();
   return Y.rent.map(function(m,i){var p='rent.'+i+'.';
-    return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="sum" data-c="r:'+i+':sum"></span></summary><div class="body">'
+    return '<details class="card"'+nowOpen(i)+'><summary><span class="mname">'+MON[i]+'</span><span class="pend" data-c="s:'+i+':rpend"></span><span class="sum" data-c="r:'+i+':sum"></span></summary><div class="body">'
     +'<div class="sec">Поступление</div>'
     +'<div class="grid">'+f(p+'date','Дата получения','date')+f(p+'amount','Арендная плата','num')+f(p+'cur','Валюта','cur')+rateFields(p,'rent',i)+'</div>'
     +'<div class="grid g2">'+f(p+'taxPct','Налог, %','num')+o('r:'+i+':tax','Налог, сумма')+'</div>'
     +'<div class="sec">Расходы (в валюте аренды)</div>'
     +'<div class="grid g2">'+f(p+'jkh','Коммуналка по квитанции','num')+o('r:'+i+':waterv','Вода и КПУ (вычитается)')+'</div>'
+    +'<div class="grid g2 mine">'+f(p+'jkhPaid','Коммуналка оплачена мной','check')+f(p+'jkhDate','Дата оплаты','date')+'</div>'
     +'<div class="grid g2">'+f(p+'maint','Maintenance','num')+f(p+'maintNote','Уточнение','note')+f(p+'other','Прочие расходы','num')+f(p+'otherNote','Уточнение','note')+'</div>'
     +'<div class="res">'+L.map(function(c){return o('r:'+i+':exp:'+c,'Расходы, '+sym(c))}).join('')+'</div>'
     +'<div class="incbox"><div class="sec nb">Доход</div><div class="res">'+L.map(function(c){return o('r:'+i+':inc:'+c,'Доход, '+sym(c),'big')}).join('')+'</div></div>'
@@ -315,6 +321,7 @@ function viewUtil(){
     +'<div class="grid g2 manual">'+f(p+'wMan','Всего вода и КПУ','num','a:'+i+':w')+'<div class="autohint"><output data-c="u:'+i+':wHint"></output></div></div>'
     +tri(i,'e1','Электричество T1','e1T','кВт·ч')+tri(i,'e2','Электричество T2','e2T','кВт·ч')+tri(i,'e3','Электричество T3','e3T','кВт·ч')
     +'<div class="grid g2 manual">'+f(p+'eMan','Всего электричество','num','a:'+i+':e')+'<div class="autohint"><output data-c="u:'+i+':eHint"></output></div></div>'
+    +'<div class="grid g2 mine">'+f(p+'elPaid','Электричество оплачено мной','check')+f(p+'elDate','Дата оплаты','date')+'</div>'
     +'<div class="sec">Итого</div><div class="res">'+o('u:'+i+':sub','Вода + электричество (за '+MON[i].toLowerCase()+')','total')+o('u:'+i+':total','К оплате 1 '+MOG[(i+1)%12]+' (с интернетом на '+MON[(i+1)%12].toLowerCase()+')','big total')+'</div>'
     +viewStatus(i)+'<div class="act"><button class="btn" data-done="'+i+'">Готово</button></div></div></details>'}).join('')
     +'<p class="note">Показания «прошлый месяц» и тарифы подставляются из предыдущего месяца, пока вы не введете свои. Если сумму воды или электричества ввести вручную, она главнее расчёта по показаниям. Отметки об оплате квартирантом здесь, в «Коммуналке»</p>';
@@ -458,10 +465,11 @@ function lastSat9(){var n=new Date(),d=new Date(n);d.setHours(9,0,0,0);d.setDate
 function lbDate(){var d=new Date(settings.lastBackup);return ('0'+d.getDate()).slice(-2)+'.'+('0'+(d.getMonth()+1)).slice(-2)+'.'+d.getFullYear()}
 function backupDue(){var b=settings.lastBackup||settings.since;return !!b&&b<lastSat9()}
 function renderTabs(){
-  document.getElementById('tabs').innerHTML=TABS.map(function(t){return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(t[0]===tab)+'">'+t[1]+(t[0]==='settings'&&backupDue()?'<i class="dot" title="Пора сделать резервную копию"></i>':'')+(t[0]==='util'&&rentAlert()?'<i class="dot" title="Есть напоминания по аренде и коммуналке"></i>':'')+'</button>'}).join('');
+  document.getElementById('tabs').innerHTML=TABS.map(function(t){return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(t[0]===tab)+'">'+t[1]+(t[0]==='settings'&&backupDue()?'<i class="dot" title="Пора сделать резервную копию"></i>':'')+((t[0]==='util'&&rentAlert())||(t[0]==='rent'&&jkhAlert())?'<i class="dot" title="Есть напоминания по аренде и коммуналке"></i>':'')+'</button>'}).join('');
 }
 function rentAlert(){if(!Y)return false;for(var i=0;i<12;i++){if(pend(i).list.length)return true}return false}
-function updDots(){var on=rentAlert();['util'].forEach(function(k){var b=document.querySelector('#tabs [data-tab="'+k+'"]');if(!b)return;var d=b.querySelector('.dot');if(on&&!d){var e=document.createElement('i');e.className='dot';e.title='Есть напоминания по аренде и коммуналке';b.appendChild(e)}else if(!on&&d)d.remove()})}
+function jkhAlert(){if(!Y)return false;for(var i=0;i<12;i++){if(pendRent(i).list.length)return true}return false}
+function updDots(){var A={util:rentAlert(),rent:jkhAlert()};['util','rent'].forEach(function(k){var on=A[k];var b=document.querySelector('#tabs [data-tab="'+k+'"]');if(!b)return;var d=b.querySelector('.dot');if(on&&!d){var e=document.createElement('i');e.className='dot';e.title='Есть напоминания по аренде и коммуналке';b.appendChild(e)}else if(!on&&d)d.remove()})}
 function markBackup(){settings.lastBackup=Date.now();saveSettings();renderTabs();if(tab==='settings')render()}
 function render(){
   yearSel();
@@ -483,7 +491,7 @@ function refresh(){
       else if(n==='exp'){v=fmt(c.expC[k[3]],k[3]);setSrc(e,k[3]===cu)}
       else if(n==='inc'){v=fmt(c.netC[k[3]],k[3]);setSrc(e,k[3]===cu);e.classList.toggle('neg',c.netC[k[3]]<0)}
       else if(n==='sum')v=c.a?'нетто '+fmt(c.net,cu):'нет данных'}
-    else if(t==='s'){var q=pend(i);v=!q.any?'':q.list.length?q.list.join(' · '):(q.paid?'оплачено':'');
+    else if(t==='s'){var q=n==='rpend'?pendRent(i):pend(i);v=!q.any?'':q.list.length?q.list.join(' · '):(q.paid?'оплачено':'');
       e.className='pend'+(q.any?(q.list.length?' warn':' ok'):'')}
     else if(t==='x'){var rr=(k[1]==='rent'?Y.rent[+k[2]]:Y.inc[+k[2]]);rr=rr&&rr.rates||{};var q1=num(rr.RUB),q2=num(rr.KZT),q3=num(rr.KZT_RUB);
       if(q1&&q2&&q3){var im=q2/q1;if(Math.abs(im/q3-1)>0.01)v='Курсы не сходятся: по курсам к доллару выходит '+String(Math.round(im*100)/100).replace('.',',')+' '+sym('KZT')+' за 1 '+sym('RUB')+'. Для расчёта берутся курсы к доллару.'}}
